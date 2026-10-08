@@ -5,7 +5,6 @@ import { api, Invoice, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
   Search,
-  PlusCircle,
   Printer,
   Edit,
   Trash2,
@@ -148,16 +147,6 @@ export default function InvoicesListPage() {
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Invoices</h2>
           <p className="text-slate-500 text-sm">Manage and track software billing statements</p>
         </div>
-
-        {isAccountant && (
-          <a
-            href="/invoices/new"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 cursor-pointer"
-          >
-            <PlusCircle size={18} />
-            Create New Bill
-          </a>
-        )}
       </div>
 
       {/* Metrics Summary Strip */}
