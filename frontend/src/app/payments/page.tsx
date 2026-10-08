@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, Invoice, Payment, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown, MetricCard, SearchBar, StatusBadge } from "@/components/common";
 import {
   CreditCard,
   Search,
@@ -241,69 +242,40 @@ export default function PaymentsPage() {
 
       {/* KPI Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Collected */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-emerald-50/70 border border-emerald-100 shadow-[0_4px_20px_-4px_rgba(16,185,129,0.12)]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Collected</span>
-            <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
-              ✓
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-emerald-700 tracking-tight font-mono">
-            {totalCollected.toLocaleString()} <span className="text-xs font-normal text-slate-500">Tk</span>
-          </div>
-          <div className="mt-1 text-[11px] text-emerald-700 font-medium">
-            {payments.length} verified transactions recorded
-          </div>
-        </div>
+        <MetricCard
+          title="Total Collected"
+          value={totalCollected.toLocaleString()}
+          unit="Tk"
+          subtitle={`${payments.length} verified transactions recorded`}
+          icon={CheckCircle2}
+          color="emerald"
+        />
 
-        {/* Total Outstanding Due */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-amber-50/70 border border-amber-100 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.12)]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Outstanding Due</span>
-            <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-              !
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-amber-600 tracking-tight font-mono">
-            {totalDue.toLocaleString()} <span className="text-xs font-normal text-slate-500">Tk</span>
-          </div>
-          <div className="mt-1 text-[11px] text-amber-700 font-medium">
-            Across {dueInvoices.length} outstanding invoices
-          </div>
-        </div>
+        <MetricCard
+          title="Total Outstanding Due"
+          value={totalDue.toLocaleString()}
+          unit="Tk"
+          subtitle={`Across ${dueInvoices.length} outstanding invoices`}
+          icon={AlertCircle}
+          color="amber"
+        />
 
-        {/* Collection Efficiency Rate */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-cyan-50/70 border border-cyan-100 shadow-[0_4px_20px_-4px_rgba(6,182,212,0.12)]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Collection Rate</span>
-            <span className="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center font-bold text-xs">
-              %
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-cyan-700 tracking-tight font-mono">
-            {collectionRate}%
-          </div>
-          <div className="mt-1 text-[11px] text-cyan-600 font-medium">
-            Settled / Total billing volume
-          </div>
-        </div>
+        <MetricCard
+          title="Collection Rate"
+          value={`${collectionRate}%`}
+          subtitle="Settled / Total billing volume"
+          icon={TrendingUp}
+          color="cyan"
+        />
 
-        {/* Fully Settled Bills */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-blue-50/70 border border-blue-100 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.12)]">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Fully Paid Bills</span>
-            <span className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-              #
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-slate-900 tracking-tight font-mono">
-            {paidInvoices.length} <span className="text-xs font-normal text-slate-500">Bills</span>
-          </div>
-          <div className="mt-1 text-[11px] text-blue-600 font-medium">
-            Fully settled without dues
-          </div>
-        </div>
+        <MetricCard
+          title="Fully Paid Bills"
+          value={paidInvoices.length}
+          unit="Bills"
+          subtitle="Fully settled without dues"
+          icon={FileCheck}
+          color="blue"
+        />
       </div>
 
       {/* Navigation Tabs */}
@@ -356,30 +328,28 @@ export default function PaymentsPage() {
 
       {/* Filter Strip */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
-        <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[240px] max-w-md relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by client, invoice #, or transaction ID..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          />
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        </form>
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          onSubmit={handleSearchSubmit}
+          placeholder="Search by client, invoice #, or transaction ID..."
+          className="max-w-md"
+        />
 
         <div className="flex flex-wrap items-center gap-3">
-          <select
+          <Dropdown
             value={methodFilter}
-            onChange={(e) => setMethodFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer font-medium"
-          >
-            <option value="">All Payment Methods</option>
-            {paymentMethods.map((pm) => (
-              <option key={pm.id} value={pm.id}>
-                {pm.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setMethodFilter(String(val))}
+            options={[
+              { value: "", label: "All Payment Methods" },
+              ...paymentMethods.map((pm) => ({
+                value: String(pm.id),
+                label: pm.name,
+              })),
+            ]}
+            size="sm"
+            className="w-52"
+          />
 
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <span>From:</span>
@@ -571,15 +541,7 @@ export default function PaymentsPage() {
                         {Number(inv.due_amount).toFixed(2)} {inv.currency_symbol}
                       </td>
                       <td className="py-4 px-5 text-center">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                            inv.status === "PARTIALLY_PAID"
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-rose-50 text-rose-700 border border-rose-200"
-                          }`}
-                        >
-                          {inv.status === "PARTIALLY_PAID" ? "Partially Paid" : "Unpaid"}
-                        </span>
+                        <StatusBadge status={inv.status} type="invoice" />
                       </td>
                       <td className="py-4 px-5 text-right">
                         {isAccountant && (
@@ -639,9 +601,7 @@ export default function PaymentsPage() {
                         {Number(inv.payable_amount).toFixed(2)} {inv.currency_symbol}
                       </td>
                       <td className="py-4 px-5 text-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Paid
-                        </span>
+                        <StatusBadge status="PAID" type="invoice" />
                       </td>
                       <td className="py-4 px-5 text-right">
                         <a
@@ -695,23 +655,26 @@ export default function PaymentsPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Select Invoice *
                 </label>
-                <select
+                <Dropdown
                   value={selectedInvoice.id}
-                  onChange={(e) => {
-                    const inv = dueInvoices.find((i) => i.id === Number(e.target.value));
+                  onChange={(val) => {
+                    const inv = dueInvoices.find((i) => i.id === Number(val));
                     if (inv) {
                       setSelectedInvoice(inv);
                       setPaymentAmount(inv.due_amount);
                     }
                   }}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
-                >
-                  {dueInvoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.invoice_number} - {inv.client_name} (Due: {inv.due_amount} {inv.currency_symbol})
-                    </option>
-                  ))}
-                </select>
+                  options={dueInvoices.map((inv) => ({
+                    value: inv.id,
+                    label: `${inv.invoice_number} - ${inv.client_name}`,
+                    secondary: `Due Amount: ${inv.due_amount} ${inv.currency_symbol}`,
+                    badge: `${inv.due_amount} ${inv.currency_symbol}`,
+                    badgeColor: "bg-rose-50 text-rose-700 border border-rose-200",
+                  }))}
+                  searchable={true}
+                  searchPlaceholder="Search invoice # or client..."
+                  size="md"
+                />
               </div>
 
               {/* Payment Amount */}
@@ -745,17 +708,16 @@ export default function PaymentsPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Payment Method *
                 </label>
-                <select
-                  value={selectedMethodId}
-                  onChange={(e) => setSelectedMethodId(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer font-medium"
-                >
-                  {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.id}>
-                      {pm.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={selectedMethodId || ""}
+                  onChange={(val) => setSelectedMethodId(Number(val))}
+                  options={paymentMethods.map((pm) => ({
+                    value: pm.id,
+                    label: pm.name,
+                  }))}
+                  placeholder="Select payment method..."
+                  size="md"
+                />
               </div>
 
               {/* Payment Date */}

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, Invoice, Client, RecurringDashboardStatus } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { MetricCard, StatusBadge } from "@/components/common";
 import {
   FileText,
   AlertCircle,
@@ -149,57 +150,41 @@ export default function DashboardPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-white via-blue-50/30 to-blue-50/70 border border-blue-200/70 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.12)] hover:shadow-[0_8px_28px_-6px_rgba(59,130,246,0.22)] hover:-translate-y-1 transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-700/80">Total Billed</span>
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25">
-              <Receipt size={20} />
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-slate-900">
-            {totalInvoiced.toLocaleString()} <span className="text-sm font-semibold text-slate-500">Tk</span>
-          </div>
-          <p className="text-xs text-blue-700/70 font-medium mt-2">Sum of recent invoices</p>
-        </div>
+        <MetricCard
+          title="Total Billed"
+          value={totalInvoiced.toLocaleString()}
+          unit="Tk"
+          subtitle="Sum of recent invoices"
+          icon={Receipt}
+          color="blue"
+        />
 
-        <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-white via-emerald-50/30 to-emerald-50/70 border border-emerald-200/70 shadow-[0_4px_20px_-4px_rgba(16,185,129,0.12)] hover:shadow-[0_8px_28px_-6px_rgba(16,185,129,0.22)] hover:-translate-y-1 transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700/80">Collected</span>
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/25">
-              <CheckCircle2 size={20} />
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-emerald-700">
-            {totalPaid.toLocaleString()} <span className="text-sm font-semibold text-emerald-600/70">Tk</span>
-          </div>
-          <p className="text-xs text-emerald-700/70 font-medium mt-2">Payments received to date</p>
-        </div>
+        <MetricCard
+          title="Collected"
+          value={totalPaid.toLocaleString()}
+          unit="Tk"
+          subtitle="Payments received to date"
+          icon={CheckCircle2}
+          color="emerald"
+        />
 
-        <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-white via-amber-50/30 to-amber-50/70 border border-amber-200/70 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.14)] hover:shadow-[0_8px_28px_-6px_rgba(245,158,11,0.24)] hover:-translate-y-1 transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700/80">Total Due</span>
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
-              <AlertCircle size={20} />
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-amber-700">
-            {totalDue.toLocaleString()} <span className="text-sm font-semibold text-amber-600/70">Tk</span>
-          </div>
-          <p className="text-xs text-amber-700/70 font-medium mt-2">Pending collection</p>
-        </div>
+        <MetricCard
+          title="Total Due"
+          value={totalDue.toLocaleString()}
+          unit="Tk"
+          subtitle="Pending collection"
+          icon={AlertCircle}
+          color="amber"
+        />
 
-        <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-white via-indigo-50/30 to-indigo-50/70 border border-indigo-200/70 shadow-[0_4px_20px_-4px_rgba(99,102,241,0.12)] hover:shadow-[0_8px_28px_-6px_rgba(99,102,241,0.22)] hover:-translate-y-1 transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-700/80">Active Clients</span>
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/25">
-              <Users size={20} />
-            </div>
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-slate-900">
-            {activeClientsCount} <span className="text-sm font-semibold text-slate-500">companies</span>
-          </div>
-          <p className="text-xs text-indigo-700/70 font-medium mt-2">Subscribed to software</p>
-        </div>
+        <MetricCard
+          title="Active Clients"
+          value={activeClientsCount}
+          unit="companies"
+          subtitle="Subscribed to software"
+          icon={Users}
+          color="purple"
+        />
       </div>
 
       {/* Recent Invoices Table */}
@@ -260,25 +245,7 @@ export default function DashboardPage() {
                       {parseFloat(inv.due_amount).toLocaleString()} {inv.currency_symbol}
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${
-                          inv.status === "PAID"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : inv.status === "PARTIALLY_PAID"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : inv.status === "DRAFT"
-                            ? "bg-slate-100 text-slate-700 border border-slate-200"
-                            : "bg-rose-50 text-rose-700 border border-rose-200"
-                        }`}
-                      >
-                        {inv.status === "PAID"
-                          ? "Paid"
-                          : inv.status === "PARTIALLY_PAID"
-                          ? "Partially Paid"
-                          : inv.status === "DRAFT"
-                          ? "Draft"
-                          : "Unpaid"}
-                      </span>
+                      <StatusBadge status={inv.status} type="invoice" />
                     </td>
                     <td className="py-4 px-6 text-right space-x-2">
                       <a

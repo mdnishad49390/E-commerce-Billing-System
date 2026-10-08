@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, Service } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown } from "@/components/common";
 import { Plus, Layers, Edit, Trash2, X } from "lucide-react";
 
 export default function ServicesPage() {
@@ -241,16 +242,17 @@ export default function ServicesPage() {
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                     Billing Cycle
                   </label>
-                  <select
+                  <Dropdown
                     value={billingCycle}
-                    onChange={(e) => setBillingCycle(e.target.value as any)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-                  >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="QUARTERLY">Quarterly</option>
-                    <option value="YEARLY">Yearly</option>
-                    <option value="ONE_TIME">One Time</option>
-                  </select>
+                    onChange={(val) => setBillingCycle(val as any)}
+                    options={[
+                      { value: "MONTHLY", label: "Monthly" },
+                      { value: "QUARTERLY", label: "Quarterly" },
+                      { value: "YEARLY", label: "Yearly" },
+                      { value: "ONE_TIME", label: "One Time" },
+                    ]}
+                    size="md"
+                  />
                 </div>
               </div>
 

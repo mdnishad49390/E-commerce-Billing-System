@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, ArrowLeft, Save } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown } from "@/components/common";
 
 interface InvoiceFormProps {
   initialData?: Invoice;
@@ -328,7 +329,7 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
       )}
 
       {/* Basic Settings Card */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative z-20 overflow-visible">
         <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
           <span className="w-7 h-7 rounded-xl bg-cyan-100 text-cyan-700 font-black text-xs flex items-center justify-center shadow-xs">
             1
@@ -344,19 +345,26 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               Client / Customer *
             </label>
-            <select
+            <Dropdown
               required
               value={clientId}
-              onChange={(e) => e.target.value ? handleClientChange(Number(e.target.value)) : setClientId("")}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 cursor-pointer shadow-2xs"
-            >
-              <option value="">Select a client...</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => {
+                if (val) {
+                  handleClientChange(Number(val));
+                } else {
+                  setClientId("");
+                }
+              }}
+              options={clients.map((c) => ({
+                value: c.id,
+                label: c.name,
+                secondary: c.phone || c.email || undefined,
+              }))}
+              placeholder="Select a client..."
+              searchable={true}
+              searchPlaceholder="Search client name..."
+              size="md"
+            />
           </div>
 
           {/* Billing Month */}
@@ -409,43 +417,43 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               Issuing Company
             </label>
-            <select
+            <Dropdown
               required
               value={companyId}
-              onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 cursor-pointer shadow-2xs"
-            >
-              <option value="">Select a company...</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setCompanyId(val ? Number(val) : "")}
+              options={companies.map((c) => ({
+                value: c.id,
+                label: c.name,
+              }))}
+              placeholder="Select a company..."
+              size="md"
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               Bank Account for Payment
             </label>
-            <select
+            <Dropdown
               value={bankAccountId}
-              onChange={(e) => setBankAccountId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 cursor-pointer shadow-2xs"
-            >
-              <option value="">(No Bank Account)</option>
-              {bankAccounts.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.bank_name} - {b.account_number} ({b.account_name})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBankAccountId(val ? Number(val) : "")}
+              options={[
+                { value: "", label: "(No Bank Account)" },
+                ...bankAccounts.map((b) => ({
+                  value: b.id,
+                  label: `${b.bank_name} - ${b.account_number}`,
+                  secondary: `A/C Name: ${b.account_name}`,
+                })),
+              ]}
+              placeholder="(No Bank Account)"
+              size="md"
+            />
           </div>
         </div>
       </div>
 
       {/* Items Table Card */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 space-y-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative z-10 overflow-visible">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 font-black text-xs flex items-center justify-center shadow-xs">
@@ -469,7 +477,7 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
           {items.map((item, index) => (
             <div
               key={index}
-              className="p-4 bg-gradient-to-r from-slate-50/90 via-white to-blue-50/20 border border-slate-200 rounded-2xl grid grid-cols-1 md:grid-cols-12 gap-3 items-end shadow-xs hover:border-cyan-300 hover:shadow-[0_4px_15px_-2px_rgba(6,182,212,0.12)] transition-all"
+              className="p-4 bg-gradient-to-r from-slate-50/90 via-white to-blue-50/20 border border-slate-200 rounded-2xl grid grid-cols-1 md:grid-cols-12 gap-3 items-end shadow-xs hover:border-cyan-300 hover:shadow-[0_4px_15px_-2px_rgba(6,182,212,0.12)] transition-all relative"
             >
               {/* SL */}
               <div className="md:col-span-1">
@@ -482,18 +490,21 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
                 <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
                   Preset Service
                 </label>
-                <select
+                <Dropdown
                   value={item.service || ""}
-                  onChange={(e) => handleItemServiceChange(index, e.target.value ? Number(e.target.value) : "")}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
-                >
-                  <option value="">(Custom Item)</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.default_price} Tk)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleItemServiceChange(index, val ? Number(val) : "")}
+                  options={[
+                    { value: "", label: "(Custom Item)" },
+                    ...services.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      secondary: `${s.default_price} Tk`,
+                      badge: `${s.default_price} Tk`,
+                    })),
+                  ]}
+                  placeholder="(Custom Item)"
+                  size="sm"
+                />
               </div>
 
               {/* Item Name */}

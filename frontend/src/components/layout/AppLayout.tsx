@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { StatusBadge } from "@/components/common";
 import {
   LayoutDashboard,
   FileText,
@@ -171,16 +172,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getRoleBadgeStyle = (role?: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "bg-rose-100 text-rose-800 border-rose-300";
-      case "ACCOUNTANT":
-        return "bg-emerald-100 text-emerald-800 border-emerald-300";
-      default:
-        return "bg-indigo-100 text-indigo-800 border-indigo-300";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -191,9 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-sm text-slate-900">RAKTCH Billing</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-            {user?.role || "STAFF"}
-          </span>
+          <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 text-slate-600 hover:text-slate-900 cursor-pointer"
@@ -311,9 +300,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   {user?.first_name ? `${user.first_name} ${user.last_name || ""}` : user?.username}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-                    {user?.role || "STAFF"}
-                  </span>
+                  <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
                 </div>
               </div>
             </div>
@@ -356,9 +343,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Shield size={14} className="text-cyan-600" />
               <span>Signed in as:</span>
               <strong className="text-slate-900">{user?.username}</strong>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-                {user?.role || "STAFF"}
-              </span>
+              <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
             </div>
 
             <button

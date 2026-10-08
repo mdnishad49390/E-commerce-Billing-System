@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, Invoice, Payment, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown, StatusBadge } from "@/components/common";
 import {
   Printer,
   ArrowLeft,
@@ -309,12 +310,7 @@ export default function InvoiceDetailPage() {
           <div>
             <h3 className="font-bold text-slate-900 text-base">Invoice #{invoice.invoice_number}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase border ${badge.bg}`}
-              >
-                <StatusIcon size={12} />
-                {badge.label}
-              </span>
+              <StatusBadge status={invoice.status} type="invoice" />
               {parseFloat(invoice.due_amount || "0") > 0 && (
                 <span className="text-xs font-semibold text-amber-700">
                   Due: {invoice.due_amount} {invoice.currency_symbol}
@@ -903,17 +899,16 @@ export default function InvoiceDetailPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Payment Method *
                 </label>
-                <select
-                  value={paymentMethodId}
-                  onChange={(e) => setPaymentMethodId(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer font-medium"
-                >
-                  {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.id}>
-                      {pm.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={paymentMethodId || ""}
+                  onChange={(val) => setPaymentMethodId(Number(val))}
+                  options={paymentMethods.map((pm) => ({
+                    value: pm.id,
+                    label: pm.name,
+                  }))}
+                  placeholder="Select payment method..."
+                  size="md"
+                />
               </div>
 
               {/* Payment Date */}

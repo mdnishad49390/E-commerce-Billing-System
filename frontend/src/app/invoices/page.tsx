@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { api, Invoice, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown, MetricCard, SearchBar, StatusBadge } from "@/components/common";
 import {
-  Search,
   Printer,
   Edit,
   Trash2,
@@ -12,6 +12,10 @@ import {
   X,
   Download,
   Loader2,
+  FileText,
+  DollarSign,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 export default function InvoicesListPage() {
@@ -151,99 +155,78 @@ export default function InvoicesListPage() {
 
       {/* Metrics Summary Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Invoices */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-blue-50/60 border border-blue-100/80 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.12)] hover:shadow-[0_8px_25px_-4px_rgba(59,130,246,0.2)] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Bills</span>
-            <span className="w-8 h-8 rounded-xl bg-blue-100/80 text-blue-600 flex items-center justify-center font-bold text-xs">
-              #
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-slate-900 tracking-tight">
-            {invoices.length}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400 font-medium">All generated invoices</div>
-        </div>
+        <MetricCard
+          title="Total Bills"
+          value={invoices.length}
+          subtitle="All generated invoices"
+          icon={FileText}
+          color="blue"
+        />
 
-        {/* Total Payable */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-cyan-50/60 border border-cyan-100/80 shadow-[0_4px_20px_-4px_rgba(6,182,212,0.12)] hover:shadow-[0_8px_25px_-4px_rgba(6,182,212,0.2)] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Billed</span>
-            <span className="w-8 h-8 rounded-xl bg-cyan-100/80 text-cyan-600 flex items-center justify-center font-bold text-xs">
-              ৳
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-slate-900 tracking-tight">
-            {(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-              ? summary.total_billed
-              : invoices.reduce((acc, inv) => acc + parseFloat(inv.payable_amount || "0"), 0)
-            ).toLocaleString()} <span className="text-xs font-normal text-slate-500">Tk</span>
-          </div>
-          <div className="mt-1 text-[11px] text-cyan-600 font-medium">Cumulative payable volume</div>
-        </div>
+        <MetricCard
+          title="Total Billed"
+          value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
+            ? summary.total_billed
+            : invoices.reduce((acc, inv) => acc + parseFloat(inv.payable_amount || "0"), 0)
+          ).toLocaleString()}
+          unit="Tk"
+          subtitle="Cumulative payable volume"
+          icon={DollarSign}
+          color="cyan"
+        />
 
-        {/* Total Paid */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-emerald-50/60 border border-emerald-100/80 shadow-[0_4px_20px_-4px_rgba(16,185,129,0.12)] hover:shadow-[0_8px_25px_-4px_rgba(16,185,129,0.2)] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Collected</span>
-            <span className="w-8 h-8 rounded-xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center font-bold text-xs">
-              ✓
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-emerald-600 tracking-tight">
-            {(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-              ? summary.total_collected
-              : invoices.reduce((acc, inv) => acc + parseFloat(inv.paid_amount || "0"), 0)
-            ).toLocaleString()} <span className="text-xs font-normal text-slate-500">Tk</span>
-          </div>
-          <div className="mt-1 text-[11px] text-emerald-600 font-medium">Verified payments received</div>
-        </div>
+        <MetricCard
+          title="Collected"
+          value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
+            ? summary.total_collected
+            : invoices.reduce((acc, inv) => acc + parseFloat(inv.paid_amount || "0"), 0)
+          ).toLocaleString()}
+          unit="Tk"
+          subtitle="Verified payments received"
+          icon={CheckCircle2}
+          color="emerald"
+        />
 
-        {/* Total Due */}
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-white via-white to-amber-50/60 border border-amber-100/80 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.12)] hover:shadow-[0_8px_25px_-4px_rgba(245,158,11,0.2)] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Net Due</span>
-            <span className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-600 flex items-center justify-center font-bold text-xs">
-              !
-            </span>
-          </div>
-          <div className="mt-3 text-2xl font-black text-amber-600 tracking-tight">
-            {(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-              ? summary.total_due
-              : invoices.reduce((acc, inv) => acc + parseFloat(inv.due_amount || "0"), 0)
-            ).toLocaleString()} <span className="text-xs font-normal text-slate-500">Tk</span>
-          </div>
-          <div className="mt-1 text-[11px] text-amber-600 font-medium">Outstanding receivables</div>
-        </div>
+        <MetricCard
+          title="Net Due"
+          value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
+            ? summary.total_due
+            : invoices.reduce((acc, inv) => acc + parseFloat(inv.due_amount || "0"), 0)
+          ).toLocaleString()}
+          unit="Tk"
+          subtitle="Outstanding receivables"
+          icon={AlertCircle}
+          color="amber"
+        />
       </div>
 
       {/* Filter Toolbar Card */}
       <div className="bg-gradient-to-r from-white via-slate-50/40 to-white border border-slate-200/90 rounded-2xl p-4 md:p-5 flex flex-wrap items-center justify-between gap-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
         {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[240px] max-w-md relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by client or invoice #..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 shadow-xs"
-          />
-          <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        </form>
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          onSubmit={handleSearchSubmit}
+          onClear={loadInvoices}
+          placeholder="Search by client or invoice #..."
+          className="max-w-md"
+        />
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <select
+          <Dropdown
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer font-medium shadow-xs"
-          >
-            <option value="">All Statuses</option>
-            <option value="ISSUED">Issued / Unpaid</option>
-            <option value="PARTIALLY_PAID">Partially Paid</option>
-            <option value="PAID">Fully Paid</option>
-            <option value="DRAFT">Draft</option>
-          </select>
+            onChange={(val) => setStatusFilter(String(val))}
+            options={[
+              { value: "", label: "All Statuses" },
+              { value: "ISSUED", label: "Issued / Unpaid", badge: "Issued", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+              { value: "PARTIALLY_PAID", label: "Partially Paid", badge: "Partial", badgeColor: "bg-amber-50 text-amber-700 border border-amber-200" },
+              { value: "PAID", label: "Fully Paid", badge: "Paid", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+              { value: "DRAFT", label: "Draft", badge: "Draft", badgeColor: "bg-slate-100 text-slate-700 border border-slate-200" },
+            ]}
+            size="sm"
+            className="w-48"
+          />
 
           <input
             type="text"
@@ -316,25 +299,7 @@ export default function InvoicesListPage() {
                       {parseFloat(inv.due_amount).toLocaleString()} {inv.currency_symbol}
                     </td>
                     <td className="py-4 px-6 text-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${
-                          inv.status === "PAID"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : inv.status === "PARTIALLY_PAID"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : inv.status === "DRAFT"
-                            ? "bg-slate-100 text-slate-700 border border-slate-200"
-                            : "bg-rose-50 text-rose-700 border border-rose-200"
-                        }`}
-                      >
-                        {inv.status === "PAID"
-                          ? "Paid"
-                          : inv.status === "PARTIALLY_PAID"
-                          ? "Partially Paid"
-                          : inv.status === "DRAFT"
-                          ? "Draft"
-                          : "Unpaid"}
-                      </span>
+                      <StatusBadge status={inv.status} type="invoice" />
                     </td>
                     <td className="py-4 px-6 text-right space-x-1.5 whitespace-nowrap">
                       {/* View & Print Details */}
@@ -444,17 +409,16 @@ export default function InvoicesListPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Payment Method
                 </label>
-                <select
-                  value={selectedMethod}
-                  onChange={(e) => setSelectedMethod(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                >
-                  {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.id}>
-                      {pm.name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={selectedMethod !== undefined ? selectedMethod : ""}
+                  onChange={(val) => setSelectedMethod(Number(val))}
+                  options={paymentMethods.map((pm) => ({
+                    value: pm.id,
+                    label: pm.name,
+                  }))}
+                  placeholder="Select payment method..."
+                  size="md"
+                />
               </div>
 
               <div>

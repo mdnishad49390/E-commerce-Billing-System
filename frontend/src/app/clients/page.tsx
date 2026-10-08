@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, Client, Service } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { Dropdown } from "@/components/common";
 import { Plus, Edit, Trash2, X, Phone, Mail, MapPin, Layers } from "lucide-react";
 
 export default function ClientsPage() {
@@ -390,10 +391,10 @@ export default function ClientsPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Service
                 </label>
-                <select
-                  value={selectedServiceId}
-                  onChange={(e) => {
-                    const sid = Number(e.target.value);
+                <Dropdown
+                  value={selectedServiceId || ""}
+                  onChange={(val) => {
+                    const sid = Number(val);
                     setSelectedServiceId(sid);
                     const s = services.find((x) => x.id === sid);
                     if (s) {
@@ -402,14 +403,15 @@ export default function ClientsPage() {
                       setCustomSpec(s.default_tech_specification);
                     }
                   }}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-                >
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} (Default: {s.default_price} Tk)
-                    </option>
-                  ))}
-                </select>
+                  options={services.map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    secondary: `Default: ${s.default_price} Tk`,
+                    badge: `${s.default_price} Tk`,
+                  }))}
+                  placeholder="Select a service..."
+                  size="md"
+                />
               </div>
 
               <div>
