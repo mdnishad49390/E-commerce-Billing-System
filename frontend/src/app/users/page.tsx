@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { api, ManagedUser } from "@/lib/api";
+import { Dropdown, StatusBadge } from "@/components/common";
 import {
   UserCheck,
   Plus,
@@ -41,6 +42,7 @@ export default function UsersPage() {
     first_name: "",
     last_name: "",
     phone: "",
+    department: "",
     role: "STAFF" as "ADMIN" | "ACCOUNTANT" | "STAFF",
     password: "",
   });
@@ -92,6 +94,7 @@ export default function UsersPage() {
       first_name: "",
       last_name: "",
       phone: "",
+      department: "",
       role: "STAFF",
       password: "",
     });
@@ -108,6 +111,7 @@ export default function UsersPage() {
       first_name: targetUser.first_name || "",
       last_name: targetUser.last_name || "",
       phone: targetUser.phone || "",
+      department: targetUser.department || "",
       role: targetUser.role,
       password: "",
     });
@@ -153,6 +157,7 @@ export default function UsersPage() {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
+        department: formData.department,
         role: formData.role,
       });
       setActionSuccess(`User ${selectedUser.username} updated successfully!`);
@@ -215,6 +220,7 @@ export default function UsersPage() {
       (u.email || "").toLowerCase().includes(q) ||
       (u.first_name || "").toLowerCase().includes(q) ||
       (u.last_name || "").toLowerCase().includes(q) ||
+      (u.department || "").toLowerCase().includes(q) ||
       u.role.toLowerCase().includes(q)
     );
   });
@@ -350,9 +356,7 @@ export default function UsersPage() {
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <span className={`inline-block text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(u.role)}`}>
-                        {u.role}
-                      </span>
+                      <StatusBadge status={u.role} type="role" />
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -371,17 +375,11 @@ export default function UsersPage() {
                     </td>
 
                     <td className="py-3.5 px-4">
-                      {u.is_active ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                          Deactivated
-                        </span>
-                      )}
+                      <StatusBadge
+                        status={u.is_active ? "ACTIVE" : "INACTIVE"}
+                        label={u.is_active ? "Active" : "Deactivated"}
+                        type="general"
+                      />
                     </td>
 
                     <td className="py-3.5 px-4 text-slate-500 text-[11px]">
@@ -514,16 +512,28 @@ export default function UsersPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="Digital Marketing"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                >
-                  <option value="STAFF">Staff (Draft invoices, Client view)</option>
-                  <option value="ACCOUNTANT">Accountant (Invoices, Payments, Due Settlement, Reports)</option>
-                  <option value="ADMIN">Admin (Full System Access, Users & Settings)</option>
-                </select>
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
+                <Dropdown
+                  value={formData.role}
+                  onChange={(val) => setFormData({ ...formData, role: val as any })}
+                  options={[
+                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
+                    { value: "ACCOUNTANT", label: "Accountant", secondary: "Invoices, Payments, Due Settlement, Reports", badge: "Accountant", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                    { value: "ADMIN", label: "Admin", secondary: "Full System Access, Users & Settings", badge: "Admin", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
+                  ]}
+                  size="md"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -602,16 +612,27 @@ export default function UsersPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
-                >
-                  <option value="STAFF">Staff (Draft invoices, Client view)</option>
-                  <option value="ACCOUNTANT">Accountant (Invoices, Payments, Due Settlement, Reports)</option>
-                  <option value="ADMIN">Admin (Full System Access, Users & Settings)</option>
-                </select>
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
+                <Dropdown
+                  value={formData.role}
+                  onChange={(val) => setFormData({ ...formData, role: val as any })}
+                  options={[
+                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
+                    { value: "ACCOUNTANT", label: "Accountant", secondary: "Invoices, Payments, Due Settlement, Reports", badge: "Accountant", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                    { value: "ADMIN", label: "Admin", secondary: "Full System Access, Users & Settings", badge: "Admin", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
+                  ]}
+                  size="md"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

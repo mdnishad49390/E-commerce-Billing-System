@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { api, AuditLog } from "@/lib/api";
+import { Dropdown, SearchBar } from "@/components/common";
 import {
   History,
   Shield,
@@ -119,49 +120,47 @@ export default function AuditLogsPage() {
 
       {/* Filters Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="relative">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by user, object, IP..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        <SearchBar
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search by user, object, IP..."
+          size="sm"
+        />
+
+        <div>
+          <Dropdown
+            value={actionFilter}
+            onChange={(val) => setActionFilter(String(val))}
+            options={[
+              { value: "", label: "All Action Types" },
+              { value: "LOGIN_SUCCESS", label: "Login Success", badge: "Auth", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+              { value: "LOGIN_FAILED", label: "Login Failed", badge: "Auth", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
+              { value: "LOGOUT", label: "Logout" },
+              { value: "CREATE", label: "Create", badge: "Data", badgeColor: "bg-cyan-50 text-cyan-700 border border-cyan-200" },
+              { value: "UPDATE", label: "Update", badge: "Data", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+              { value: "DELETE", label: "Delete", badge: "Data", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
+              { value: "STATUS_CHANGE", label: "Status Change" },
+              { value: "PASSWORD_CHANGE", label: "Password Change" },
+            ]}
+            size="sm"
           />
         </div>
 
         <div>
-          <select
-            value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-          >
-            <option value="">All Action Types</option>
-            <option value="LOGIN_SUCCESS">Login Success</option>
-            <option value="LOGIN_FAILED">Login Failed</option>
-            <option value="LOGOUT">Logout</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="STATUS_CHANGE">Status Change</option>
-            <option value="PASSWORD_CHANGE">Password Change</option>
-          </select>
-        </div>
-
-        <div>
-          <select
+          <Dropdown
             value={modelFilter}
-            onChange={(e) => setModelFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
-          >
-            <option value="">All Target Models</option>
-            <option value="Invoice">Invoices</option>
-            <option value="Payment">Payments</option>
-            <option value="User">Users</option>
-            <option value="Client">Clients</option>
-            <option value="Company">Company</option>
-            <option value="Settings">Settings</option>
-          </select>
+            onChange={(val) => setModelFilter(String(val))}
+            options={[
+              { value: "", label: "All Target Models" },
+              { value: "Invoice", label: "Invoices" },
+              { value: "Payment", label: "Payments" },
+              { value: "User", label: "Users" },
+              { value: "Client", label: "Clients" },
+              { value: "Company", label: "Company" },
+              { value: "Settings", label: "Settings" },
+            ]}
+            size="sm"
+          />
         </div>
       </div>
 

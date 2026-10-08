@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { StatusBadge } from "@/components/common";
 import {
   LayoutDashboard,
   FileText,
@@ -21,12 +23,25 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, changePassword, loading, isAdmin, isAccountant } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Invoices dropdown & active state (Hooks must be called before any early return)
+  const isInvoiceSectionActive = pathname.startsWith("/invoices");
+  const isCreateBillActive = pathname === "/invoices/create" || pathname === "/invoices/new";
+  const isAllInvoicesActive = pathname === "/invoices" || (isInvoiceSectionActive && !isCreateBillActive);
+  const [invoicesExpanded, setInvoicesExpanded] = useState(isInvoiceSectionActive);
+
+  useEffect(() => {
+    if (pathname.startsWith("/invoices")) {
+      setInvoicesExpanded(true);
+    }
+  }, [pathname]);
 
   // Change Password Modal state
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -53,12 +68,62 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Navigation Items with RBAC visibility rules
-  const allNavItems = [
+  // Navigation Items with RBAC visibility rules & nested branches
+  type NavSubItem = {
+    href: string;
+    label: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    isActive: boolean;
+    visible?: boolean;
+  };
+
+  type NavItem =
+    | {
+        type: "dropdown";
+        label: string;
+        icon: React.ComponentType<{ size?: number; className?: string }>;
+        visible: boolean;
+        isOpen: boolean;
+        onToggle: () => void;
+        isActive: boolean;
+        children: NavSubItem[];
+      }
+    | {
+        type?: "link";
+        href: string;
+        label: string;
+        icon: React.ComponentType<{ size?: number; className?: string }>;
+        visible: boolean;
+      };
+
+  const navItems: NavItem[] = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, visible: true },
-    { href: "/invoices", label: "Invoices", icon: FileText, visible: true },
+    {
+      type: "dropdown",
+      label: "Invoices",
+      icon: FileText,
+      visible: true,
+      isOpen: invoicesExpanded,
+      onToggle: () => setInvoicesExpanded((prev) => !prev),
+      isActive: isInvoiceSectionActive,
+      children: [
+        {
+          href: "/invoices",
+          label: "All Invoices",
+          icon: FileText,
+          isActive: isAllInvoicesActive,
+          visible: true,
+        },
+        {
+          href: "/invoices/create",
+          label: "Create Bill",
+          icon: PlusCircle,
+          isActive: isCreateBillActive,
+          visible: true,
+        },
+      ],
+    },
     { href: "/payments", label: "Payments & Due", icon: CreditCard, visible: true },
-    { href: "/invoices/new", label: "Create Bill", icon: PlusCircle, visible: true },
     { href: "/clients", label: "Clients", icon: Users, visible: true },
     { href: "/services", label: "Services", icon: Layers, visible: true },
     // Admin Only Links
@@ -68,7 +133,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/settings", label: "Settings", icon: Settings, visible: isAdmin },
   ];
 
-  const visibleNavItems = allNavItems.filter((item) => item.visible);
+  const visibleNavItems = navItems.filter((item) => item.visible);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,16 +172,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getRoleBadgeStyle = (role?: string) => {
-    switch (role) {
-      case "ADMIN":
-        return "bg-rose-100 text-rose-800 border-rose-300";
-      case "ACCOUNTANT":
-        return "bg-emerald-100 text-emerald-800 border-emerald-300";
-      default:
-        return "bg-indigo-100 text-indigo-800 border-indigo-300";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row">
@@ -127,9 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-sm text-slate-900">RAKTCH Billing</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-            {user?.role || "STAFF"}
-          </span>
+          <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 text-slate-600 hover:text-slate-900 cursor-pointer"
@@ -157,12 +210,71 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Navigation Menu
             </div>
             {visibleNavItems.map((item) => {
+              if (item.type === "dropdown") {
+                const DropdownIcon = item.icon;
+                return (
+                  <div key={item.label} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={item.onToggle}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 cursor-pointer ${
+                        item.isActive
+                          ? "bg-cyan-50/70 text-cyan-900 border border-cyan-200/60 font-semibold"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <DropdownIcon
+                          size={18}
+                          className={item.isActive ? "text-cyan-600" : "text-slate-400"}
+                        />
+                        <span>{item.label}</span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform duration-200 ${
+                          item.isOpen ? "rotate-180 text-cyan-600" : "text-slate-400"
+                        }`}
+                      />
+                    </button>
+
+                    {item.isOpen && (
+                      <div className="ml-4 pl-3 border-l-2 border-slate-200 space-y-1 py-1">
+                        {item.children
+                          .filter((child) => child.visible !== false)
+                          .map((child) => {
+                            const ChildIcon = child.icon;
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                                  child.isActive
+                                    ? "bg-cyan-50 text-cyan-800 font-bold border border-cyan-200/80 shadow-xs"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                                }`}
+                              >
+                                <ChildIcon
+                                  size={15}
+                                  className={child.isActive ? "text-cyan-600" : "text-slate-400"}
+                                />
+                                <span>{child.label}</span>
+                              </Link>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+              const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href!));
               return (
-                <a
+                <Link
                   key={item.href}
-                  href={item.href}
+                  href={item.href!}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${
                     isActive
@@ -172,7 +284,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Icon size={18} className={isActive ? "text-cyan-600" : "text-slate-400"} />
                   {item.label}
-                </a>
+                </Link>
               );
             })}
           </nav>
@@ -188,9 +300,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   {user?.first_name ? `${user.first_name} ${user.last_name || ""}` : user?.username}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-                    {user?.role || "STAFF"}
-                  </span>
+                  <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
                 </div>
               </div>
             </div>
@@ -233,9 +343,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Shield size={14} className="text-cyan-600" />
               <span>Signed in as:</span>
               <strong className="text-slate-900">{user?.username}</strong>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getRoleBadgeStyle(user?.role)}`}>
-                {user?.role || "STAFF"}
-              </span>
+              <StatusBadge status={user?.role || "STAFF"} type="role" size="xs" showDot={false} />
             </div>
 
             <button
