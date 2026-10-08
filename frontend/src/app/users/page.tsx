@@ -41,6 +41,7 @@ export default function UsersPage() {
     first_name: "",
     last_name: "",
     phone: "",
+    department: "",
     role: "STAFF" as "ADMIN" | "ACCOUNTANT" | "STAFF",
     password: "",
   });
@@ -92,6 +93,7 @@ export default function UsersPage() {
       first_name: "",
       last_name: "",
       phone: "",
+      department: "",
       role: "STAFF",
       password: "",
     });
@@ -108,6 +110,7 @@ export default function UsersPage() {
       first_name: targetUser.first_name || "",
       last_name: targetUser.last_name || "",
       phone: targetUser.phone || "",
+      department: targetUser.department || "",
       role: targetUser.role,
       password: "",
     });
@@ -153,6 +156,7 @@ export default function UsersPage() {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
+        department: formData.department,
         role: formData.role,
       });
       setActionSuccess(`User ${selectedUser.username} updated successfully!`);
@@ -215,6 +219,7 @@ export default function UsersPage() {
       (u.email || "").toLowerCase().includes(q) ||
       (u.first_name || "").toLowerCase().includes(q) ||
       (u.last_name || "").toLowerCase().includes(q) ||
+      (u.department || "").toLowerCase().includes(q) ||
       u.role.toLowerCase().includes(q)
     );
   });
@@ -514,6 +519,17 @@ export default function UsersPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="Digital Marketing"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
                 <select
                   value={formData.role}
@@ -599,6 +615,16 @@ export default function UsersPage() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                />
               </div>
 
               <div>

@@ -26,16 +26,17 @@ User = get_user_model()
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ["role", "phone"]
+        fields = ["role", "phone", "department"]
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
+    department = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "is_superuser", "role", "phone"]
+        fields = ["id", "username", "email", "first_name", "last_name", "is_superuser", "role", "phone", "department"]
 
     def get_role(self, obj):
         if obj.is_superuser:
@@ -49,8 +50,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
             return obj.profile.phone
         return ""
 
+    def get_department(self, obj):
+        if hasattr(obj, "profile"):
+            return obj.profile.department
+        return ""
+
 
 class BankAccountSerializer(serializers.ModelSerializer):
+    company = serializers.PrimaryKeyRelatedField(queryset=Company.objects.all(), required=False)
+
     class Meta:
         model = BankAccount
         fields = "__all__"
@@ -254,13 +262,11 @@ class InvoiceCreateUpdateSerializer(serializers.ModelSerializer):
             "subscription": {"required": False, "allow_null": True},
         }
 
-
     @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop("items", [])
         invoice = Invoice.objects.create(**validated_data)
 
-        # Create items first without recalculating totals on each item save
         for idx, item_data in enumerate(items_data, start=1):
             sl = item_data.pop("sl", idx)
             item = InvoiceItem(invoice=invoice, sl=sl, **item_data)
@@ -287,7 +293,6 @@ class InvoiceCreateUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         if items_data is not None:
-            # Replace or update items
             instance.items.all().delete()
             for idx, item_data in enumerate(items_data, start=1):
                 sl = item_data.pop("sl", idx)
@@ -310,6 +315,7 @@ class InvoiceCreateUpdateSerializer(serializers.ModelSerializer):
 class UserManagementSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=UserProfile.ROLE_CHOICES, default=UserProfile.ROLE_STAFF)
     phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    department = serializers.CharField(max_length=255, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=False, min_length=6)
 
     class Meta:
@@ -324,6 +330,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "date_joined",
             "role",
             "phone",
+            "department",
             "password",
         ]
         read_only_fields = ["id", "date_joined"]
@@ -335,28 +342,31 @@ class UserManagementSerializer(serializers.ModelSerializer):
         elif hasattr(instance, "profile"):
             data["role"] = instance.profile.role
             data["phone"] = instance.profile.phone
+            data["department"] = instance.profile.department
         else:
             data["role"] = UserProfile.ROLE_STAFF
             data["phone"] = ""
+            data["department"] = ""
         return data
 
     @transaction.atomic
     def create(self, validated_data):
         role = validated_data.pop("role", UserProfile.ROLE_STAFF)
         phone = validated_data.pop("phone", "")
+        department = validated_data.pop("department", "")
         password = validated_data.pop("password", None)
 
         if not password:
             raise serializers.ValidationError({"password": "Password is required for new user."})
 
-        user = User.objects.create_user(password=password, **validated_data)
+        user = User.objects.create_user(**validated_data, password=password)
         if role == UserProfile.ROLE_ADMIN:
             user.is_staff = True
             user.save(update_fields=["is_staff"])
 
         UserProfile.objects.update_or_create(
             user=user,
-            defaults={"role": role, "phone": phone}
+            defaults={"role": role, "phone": phone, "department": department}
         )
         return user
 
@@ -364,6 +374,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         role = validated_data.pop("role", None)
         phone = validated_data.pop("phone", None)
+        department = validated_data.pop("department", None)
         password = validated_data.pop("password", None)
 
         for attr, value in validated_data.items():
@@ -381,11 +392,11 @@ class UserManagementSerializer(serializers.ModelSerializer):
             profile.role = role
         if phone is not None:
             profile.phone = phone
+        if department is not None:
+            profile.department = department
         profile.save()
 
         return instance
-
-
 class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True, min_length=6)
     confirm_password = serializers.CharField(required=True, min_length=6)
@@ -431,5 +442,6 @@ class RecurringRunSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecurringRun
         fields = "__all__"
+
 
 
