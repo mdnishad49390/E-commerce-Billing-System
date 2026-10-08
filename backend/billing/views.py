@@ -435,7 +435,12 @@ class BankAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [SettingsAndCompanyPermission]
 
     def perform_create(self, serializer):
-        bank = serializer.save()
+        company = serializer.validated_data.get("company")
+        if not company:
+            company = Company.objects.filter(is_default=True).first() or Company.objects.first()
+            bank = serializer.save(company=company)
+        else:
+            bank = serializer.save()
         record_audit_log(AuditLog.ACTION_CREATE, request=self.request, model_name="BankAccount", object_id=bank.id, object_repr=str(bank))
 
     def perform_update(self, serializer):

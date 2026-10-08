@@ -57,6 +57,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 
 class BankAccountSerializer(serializers.ModelSerializer):
+    company = serializers.PrimaryKeyRelatedField(queryset=Company.objects.all(), required=False)
+
     class Meta:
         model = BankAccount
         fields = "__all__"

@@ -631,6 +631,10 @@ class ApiService {
     return this.put<BankAccount>(`/bank-accounts/${id}/`, data);
   }
 
+  async deleteBankAccount(id: number) {
+    return this.delete(`/bank-accounts/${id}/`);
+  }
+
   // Settings & Templates
   async getSettings() {
     return this.get<{ count: number; results: GlobalSettings[] }>("/settings/");
