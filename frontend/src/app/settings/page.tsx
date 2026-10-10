@@ -139,7 +139,7 @@ export default function SettingsPage() {
   const openAddBankModal = () => {
     setNewBankForm({
       bank_name: "",
-      account_name: company?.name || "RAKTCH TECHNOLOGY AND SOFTWARE",
+      account_name: "",
       account_number: "",
       branch_name: "",
       routing_number: "",
