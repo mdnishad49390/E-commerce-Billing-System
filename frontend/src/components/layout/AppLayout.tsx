@@ -24,7 +24,10 @@ import {
   AlertCircle,
   RefreshCw,
   ChevronDown,
+  Briefcase,
 } from "lucide-react";
+import { t } from "@/lib/translations";
+import { api } from "@/lib/api";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, changePassword, loading, isAdmin, isAccountant } = useAuth();
@@ -51,6 +54,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  // Dynamic project visibility from permission matrix
+  const [canViewProjects, setCanViewProjects] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      api.getProjectConfig()
+        .then((cfg) => {
+          if (cfg && cfg.permissions) {
+            setCanViewProjects(!!cfg.permissions.can_view);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   // If on login page, render children without sidebar or topbar
   if (pathname === "/login") {
@@ -126,6 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { href: "/payments", label: "Payments & Due", icon: CreditCard, visible: true },
     { href: "/clients", label: "Clients", icon: Users, visible: true },
     { href: "/services", label: "Services", icon: Layers, visible: true },
+    { href: "/projects", label: t("nav_projects"), icon: Briefcase, visible: canViewProjects },
     // Admin Only Links
     { href: "/users", label: "Users & Roles", icon: UserCheck, visible: isAdmin },
     { href: "/recurring-runs", label: "Recurring Runs", icon: RefreshCw, visible: isAdmin },

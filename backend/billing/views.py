@@ -30,6 +30,15 @@ from .models import (
     AuditLog,
     LoginAttempt,
     RecurringRun,
+    ProjectStatus,
+    ProjectPriority,
+    BillingMethod,
+    DocumentCategory,
+    ProjectRolePermission,
+    Project,
+    ProjectModule,
+    ProjectExpense,
+    ProjectDocument,
 )
 from .serializers import (
     UserDetailSerializer,
@@ -53,8 +62,20 @@ from .serializers import (
     PaymentSerializer,
     RecurringRunSerializer,
     check_payment_allowed,
+    ProjectStatusSerializer,
+    ProjectPrioritySerializer,
+    BillingMethodSerializer,
+    DocumentCategorySerializer,
+    ProjectRolePermissionSerializer,
+    ProjectModuleSerializer,
+    ProjectExpenseSerializer,
+    ProjectDocumentSerializer,
+    ProjectListSerializer,
+    ProjectDetailSerializer,
+    ProjectCreateUpdateSerializer,
 )
 from rest_framework.exceptions import ValidationError
+from django.http import FileResponse
 from . import payment_calendar
 from .services import RecurringBillingService
 from .permissions import (
@@ -65,8 +86,14 @@ from .permissions import (
     PaymentPermission,
     InvoicePermission,
     get_user_role,
+    ProjectPermission,
+    ProjectConfigPermission,
+    ProjectModulePermission,
+    ProjectExpensePermission,
+    ProjectDocumentPermission,
+    has_project_permission,
 )
-from .filters import InvoiceFilter, ClientFilter, PaymentFilter
+from .filters import InvoiceFilter, ClientFilter, PaymentFilter, ProjectFilter
 from .audit import record_audit_log, get_client_ip
 
 User = get_user_model()
@@ -931,3 +958,452 @@ class PaymentViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+
+# ==============================================================================
+# Dynamic Projects Module Views
+# ==============================================================================
+
+class ProjectConfigView(APIView):
+    """
+    GET /api/projects/config/
+    Returns active options, code format, file upload limits, default columns,
+    and current user's project permissions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "You do not have permission to view projects."}, status=status.HTTP_403_FORBIDDEN)
+
+        st = Settings.objects.first()
+
+        statuses = ProjectStatus.objects.filter(is_active=True).order_by("sort_order", "id")
+        priorities = ProjectPriority.objects.filter(is_active=True).order_by("sort_order", "id")
+        billing_methods = BillingMethod.objects.filter(is_active=True).order_by("sort_order", "id")
+        document_categories = DocumentCategory.objects.filter(is_active=True).order_by("sort_order", "id")
+
+        user_role = get_user_role(request.user)
+
+        user_perms = {
+            "can_view": has_project_permission(request.user, "view"),
+            "can_create": has_project_permission(request.user, "create"),
+            "can_edit": has_project_permission(request.user, "edit"),
+            "can_delete": has_project_permission(request.user, "delete"),
+            "can_manage_expenses": has_project_permission(request.user, "manage_expenses"),
+            "can_manage_documents": has_project_permission(request.user, "manage_documents"),
+            "can_manage_modules": has_project_permission(request.user, "manage_modules"),
+            "can_change_status": has_project_permission(request.user, "change_status"),
+            "can_manage_config": has_project_permission(request.user, "manage_config"),
+            "role": user_role,
+        }
+
+        default_columns = (
+            st.project_list_default_columns
+            if st and st.project_list_default_columns
+            else [
+                "code", "name", "client", "timespan", "status",
+                "priority", "budget", "documents", "billing_method",
+                "comment", "created_at"
+            ]
+        )
+
+        return Response({
+            "statuses": ProjectStatusSerializer(statuses, many=True).data,
+            "priorities": ProjectPrioritySerializer(priorities, many=True).data,
+            "billing_methods": BillingMethodSerializer(billing_methods, many=True).data,
+            "document_categories": DocumentCategorySerializer(document_categories, many=True).data,
+            "code_format": {
+                "prefix": getattr(st, "project_code_prefix", "PRJ") if st else "PRJ",
+                "digits": getattr(st, "project_code_digits", 4) if st else 4,
+                "include_year": getattr(st, "project_code_include_year", True) if st else True,
+            },
+            "file_rules": {
+                "receipt": {
+                    "allowed_extensions": getattr(st, "project_receipt_allowed_extensions", "pdf,png,jpg,jpeg") if st else "pdf,png,jpg,jpeg",
+                    "max_size_mb": getattr(st, "project_receipt_max_size_mb", 5) if st else 5,
+                },
+                "document": {
+                    "allowed_extensions": getattr(st, "project_doc_allowed_extensions", "pdf,docx,xlsx,png,jpg,zip") if st else "pdf,docx,xlsx,png,jpg,zip",
+                    "max_size_mb": getattr(st, "project_doc_max_size_mb", 25) if st else 25,
+                },
+            },
+            "default_columns": default_columns,
+            "currency_symbol": getattr(st, "currency_symbol", "Tk") if st else "Tk",
+            "currency_code": getattr(st, "currency_code", "BDT") if st else "BDT",
+            "permissions": user_perms,
+        })
+
+
+class ProjectOptionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for dynamic lookup option models:
+    - /api/project-options/statuses/
+    - /api/project-options/priorities/
+    - /api/project-options/billing-methods/
+    - /api/project-options/document-categories/
+    """
+    permission_classes = [ProjectConfigPermission]
+
+    MODEL_MAP = {
+        "statuses": (ProjectStatus, ProjectStatusSerializer),
+        "priorities": (ProjectPriority, ProjectPrioritySerializer),
+        "billing-methods": (BillingMethod, BillingMethodSerializer),
+        "document-categories": (DocumentCategory, DocumentCategorySerializer),
+    }
+
+    def _get_model_and_serializer(self):
+        option_type = self.kwargs.get("option_type")
+        if option_type not in self.MODEL_MAP:
+            raise ValidationError({"error": f"Invalid option type '{option_type}'."})
+        return self.MODEL_MAP[option_type]
+
+    def get_queryset(self):
+        model_cls, _ = self._get_model_and_serializer()
+        return model_cls.objects.all().order_by("sort_order", "id")
+
+    def get_serializer_class(self):
+        _, serializer_cls = self._get_model_and_serializer()
+        return serializer_cls
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        model_cls, _ = self._get_model_and_serializer()
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        model_cls, _ = self._get_model_and_serializer()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+
+    def perform_destroy(self, instance):
+        model_cls, _ = self._get_model_and_serializer()
+        for rel in instance._meta.related_objects:
+            accessor = rel.get_accessor_name()
+            if accessor and hasattr(instance, accessor):
+                count = getattr(instance, accessor).count()
+                if count > 0:
+                    raise ValidationError({
+                        "detail": f"Cannot delete '{instance.name}' because it is in use by {count} record(s). Deactivate it instead."
+                    })
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+        instance.delete()
+
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request, option_type=None):
+        model_cls, _ = self._get_model_and_serializer()
+        items = request.data if isinstance(request.data, list) else request.data.get("items", [])
+        if not items:
+            return Response({"error": "No order data provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            for item in items:
+                pk = item.get("id")
+                order = item.get("sort_order")
+                if pk is not None and order is not None:
+                    model_cls.objects.filter(pk=pk).update(sort_order=order)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id="batch_reorder",
+            object_repr=f"Reordered {option_type}",
+        )
+        return Response({"detail": "Options reordered successfully."})
+
+
+class ProjectRolePermissionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD on ProjectRolePermission matrix.
+    Admin role is strictly immutable and protected.
+    """
+    queryset = ProjectRolePermission.objects.all().order_by("id")
+    serializer_class = ProjectRolePermissionSerializer
+    permission_classes = [ProjectConfigPermission]
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.role == UserProfile.ROLE_ADMIN:
+            raise ValidationError({"detail": "Administrator permissions cannot be modified."})
+        perm = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectRolePermission",
+            object_id=perm.id,
+            object_repr=f"Permissions for {perm.role}",
+        )
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for Projects:
+    - Zero N+1 queries via annotations and select_related
+    - Filters: status, priority, client, billing_method, dates, is_closed
+    - Search: code, name, client name
+    - Audit logging
+    - Block hard-deletion if related records exist
+    """
+    permission_classes = [ProjectPermission]
+    filterset_class = ProjectFilter
+    search_fields = ["code", "name", "client__name"]
+    ordering_fields = [
+        "code", "name", "start_date", "end_date", "total_budget",
+        "estimated_cost", "created_at", "priority__weight"
+    ]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        from django.db.models import Sum, Count, Value, DecimalField, IntegerField, Q
+        from django.db.models.functions import Coalesce
+
+        return Project.objects.select_related(
+            "client", "status", "priority", "billing_method", "created_by"
+        ).annotate(
+            annotated_actual_cost=Coalesce(
+                Sum("expenses__amount"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_billable_total=Coalesce(
+                Sum("expenses__amount", filter=Q(expenses__is_billable=True)),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_non_billable_total=Coalesce(
+                Sum("expenses__amount", filter=Q(expenses__is_billable=False)),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_documents_count=Count("documents", distinct=True),
+            annotated_modules_count=Count("modules", distinct=True),
+            annotated_modules_progress_sum=Coalesce(
+                Sum("modules__progress_percent"),
+                Value(0),
+                output_field=IntegerField()
+            ),
+        )
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ProjectListSerializer
+        elif self.action == "retrieve":
+            return ProjectDetailSerializer
+        return ProjectCreateUpdateSerializer
+
+    def perform_create(self, serializer):
+        project = serializer.save(created_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="Project",
+            object_id=project.id,
+            object_repr=project.code,
+        )
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_status = old_instance.status
+        project = serializer.save()
+
+        if old_status != project.status:
+            record_audit_log(
+                AuditLog.ACTION_STATUS_CHANGE,
+                request=self.request,
+                model_name="Project",
+                object_id=project.id,
+                object_repr=project.code,
+                changes={"status": [old_status.name, project.status.name]},
+            )
+        else:
+            record_audit_log(
+                AuditLog.ACTION_UPDATE,
+                request=self.request,
+                model_name="Project",
+                object_id=project.id,
+                object_repr=project.code,
+            )
+
+    def perform_destroy(self, instance):
+        if instance.expenses.exists() or instance.documents.exists() or instance.modules.exists():
+            raise ValidationError(
+                {"detail": "Cannot delete project with existing expenses, documents, or modules. Update status to closed instead."}
+            )
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="Project",
+            object_id=instance.id,
+            object_repr=instance.code,
+        )
+        instance.delete()
+
+
+class ProjectModuleViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Modules (/api/projects/{project_pk}/modules/)"""
+    serializer_class = ProjectModuleSerializer
+    permission_classes = [ProjectModulePermission]
+
+    def get_queryset(self):
+        return ProjectModule.objects.filter(project_id=self.kwargs["project_pk"]).order_by("sort_order", "id")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        if project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot add modules to a closed project."})
+        module = serializer.save(project=project)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=module.id,
+            object_repr=f"{project.code} - {module.name}",
+        )
+
+    def perform_update(self, serializer):
+        module = self.get_object()
+        if module.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot modify modules of a closed project."})
+        mod = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=mod.id,
+            object_repr=f"{mod.project.code} - {mod.name}",
+        )
+
+    def perform_destroy(self, instance):
+        if instance.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot delete modules of a closed project."})
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.name}",
+        )
+        instance.delete()
+
+
+class ProjectExpenseViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Expenses (/api/projects/{project_pk}/expenses/)"""
+    serializer_class = ProjectExpenseSerializer
+    permission_classes = [ProjectExpensePermission]
+
+    def get_queryset(self):
+        return ProjectExpense.objects.filter(project_id=self.kwargs["project_pk"]).select_related("created_by").order_by("-date", "-id")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        if project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot add expenses to a closed project."})
+        expense = serializer.save(project=project, created_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=expense.id,
+            object_repr=f"{project.code} - {expense.expense_name}",
+        )
+
+    def perform_update(self, serializer):
+        expense = self.get_object()
+        if expense.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot modify expenses of a closed project."})
+        exp = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=exp.id,
+            object_repr=f"{exp.project.code} - {exp.expense_name}",
+        )
+
+    def perform_destroy(self, instance):
+        if instance.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot delete expenses of a closed project."})
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.expense_name}",
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="receipt")
+    def download_receipt(self, request, project_pk=None, pk=None):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        expense = self.get_object()
+        if not expense.receipt:
+            return Response({"detail": "No receipt attached to this expense."}, status=status.HTTP_404_NOT_FOUND)
+        import os
+        filename = os.path.basename(expense.receipt.name)
+        response = FileResponse(expense.receipt.open("rb"))
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ProjectDocumentViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Documents (/api/projects/{project_pk}/documents/)"""
+    serializer_class = ProjectDocumentSerializer
+    permission_classes = [ProjectDocumentPermission]
+
+    def get_queryset(self):
+        return ProjectDocument.objects.filter(project_id=self.kwargs["project_pk"]).select_related("category", "uploaded_by").order_by("-uploaded_at")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        doc = serializer.save(project=project, uploaded_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectDocument",
+            object_id=doc.id,
+            object_repr=f"{project.code} - {doc.title}",
+        )
+
+    def perform_destroy(self, instance):
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectDocument",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.title}",
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="download")
+    def download_file(self, request, project_pk=None, pk=None):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        document = self.get_object()
+        if not document.file:
+            return Response({"detail": "File not found."}, status=status.HTTP_404_NOT_FOUND)
+        import os
+        filename = os.path.basename(document.file.name)
+        response = FileResponse(document.file.open("rb"))
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+

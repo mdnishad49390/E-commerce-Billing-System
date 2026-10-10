@@ -22,7 +22,7 @@ async function forwardRequest(req: NextRequest, { params }: { params: Promise<{ 
   };
 
   const contentType = req.headers.get("content-type");
-  if (contentType && !contentType.includes("multipart/form-data")) {
+  if (contentType) {
     headers["Content-Type"] = contentType;
   }
 
@@ -103,8 +103,17 @@ async function forwardRequest(req: NextRequest, { params }: { params: Promise<{ 
 
   // Handle Response
   const resContentType = res.headers.get("content-type") || "";
+  const hasContentDisposition = !!res.headers.get("content-disposition");
   let responseData: any;
-  if (resContentType.includes("application/pdf") || resContentType.includes("image/")) {
+  if (
+    hasContentDisposition ||
+    resContentType.includes("application/pdf") ||
+    resContentType.includes("image/") ||
+    resContentType.includes("application/octet-stream") ||
+    resContentType.includes("application/zip") ||
+    resContentType.includes("application/vnd") ||
+    resContentType.includes("application/msword")
+  ) {
     responseData = await res.arrayBuffer();
   } else {
     responseData = await res.text();
