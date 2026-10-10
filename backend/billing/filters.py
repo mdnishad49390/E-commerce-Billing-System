@@ -53,3 +53,25 @@ class PaymentFilter(django_filters.FilterSet):
             Q(invoice__title__icontains=value)
         )
 
+
+class ProjectFilter(django_filters.FilterSet):
+    status = django_filters.NumberFilter(field_name="status__id")
+    priority = django_filters.NumberFilter(field_name="priority__id")
+    client = django_filters.NumberFilter(field_name="client__id")
+    billing_method = django_filters.NumberFilter(field_name="billing_method__id")
+    start_date_after = django_filters.DateFilter(field_name="start_date", lookup_expr="gte")
+    start_date_before = django_filters.DateFilter(field_name="start_date", lookup_expr="lte")
+    end_date_after = django_filters.DateFilter(field_name="end_date", lookup_expr="gte")
+    end_date_before = django_filters.DateFilter(field_name="end_date", lookup_expr="lte")
+    is_closed = django_filters.BooleanFilter(field_name="status__is_closed")
+
+    class Meta:
+        from .models import Project
+        model = Project
+        fields = [
+            "status", "priority", "client", "billing_method",
+            "start_date_after", "start_date_before", "end_date_after", "end_date_before",
+            "is_closed",
+        ]
+
+

@@ -75,6 +75,14 @@ export interface GlobalSettings {
   auto_billing_day?: number;
   auto_billing_time?: string;
   auto_billing_timezone?: string;
+  project_code_prefix?: string;
+  project_code_digits?: number;
+  project_code_include_year?: boolean;
+  project_receipt_allowed_extensions?: string;
+  project_receipt_max_size_mb?: number;
+  project_doc_allowed_extensions?: string;
+  project_doc_max_size_mb?: number;
+  project_list_default_columns?: string[];
 }
 
 export interface Subscription {
@@ -197,6 +205,191 @@ export interface InvoiceTemplate {
   authorization_label: string;
   received_by_label: string;
   is_default: boolean;
+}
+
+export interface ProjectStatus {
+  id: number;
+  name: string;
+  name_bn?: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  is_default: boolean;
+  is_closed: boolean;
+  is_initial: boolean;
+  allow_staff_set: boolean;
+  in_use_count?: number;
+  created_at?: string;
+}
+
+export interface ProjectPriority {
+  id: number;
+  name: string;
+  name_bn?: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  is_default: boolean;
+  weight: number;
+  in_use_count?: number;
+  created_at?: string;
+}
+
+export interface BillingMethod {
+  id: number;
+  name: string;
+  name_bn?: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  is_default: boolean;
+  in_use_count?: number;
+  created_at?: string;
+}
+
+export interface DocumentCategory {
+  id: number;
+  name: string;
+  name_bn?: string;
+  color: string;
+  sort_order: number;
+  is_active: boolean;
+  is_default: boolean;
+  in_use_count?: number;
+  created_at?: string;
+}
+
+export interface ProjectRolePermission {
+  id: number;
+  role: "ADMIN" | "ACCOUNTANT" | "STAFF";
+  can_view: boolean;
+  can_create: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_manage_expenses: boolean;
+  can_manage_documents: boolean;
+  can_manage_modules: boolean;
+  can_change_status: boolean;
+  can_manage_config: boolean;
+  updated_at?: string;
+}
+
+export interface ProjectModule {
+  id: number;
+  project: number;
+  name: string;
+  description: string;
+  progress_percent: number;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProjectExpense {
+  id: number;
+  project: number;
+  expense_name: string;
+  date: string;
+  amount: string;
+  description: string;
+  is_billable: boolean;
+  receipt: string | null;
+  receipt_filename?: string | null;
+  created_by?: number | null;
+  created_by_name?: string;
+  created_at: string;
+}
+
+export interface ProjectDocument {
+  id: number;
+  project: number;
+  title: string;
+  category: number;
+  category_name?: string;
+  category_color?: string;
+  file: string;
+  file_name?: string | null;
+  file_size_formatted?: string;
+  uploaded_by?: number | null;
+  uploaded_by_name?: string;
+  uploaded_at: string;
+}
+
+export interface Project {
+  id: number;
+  code: string;
+  name: string;
+  client: number;
+  client_name?: string;
+  start_date: string;
+  end_date: string | null;
+  description?: string;
+  status: number;
+  status_name?: string;
+  status_name_bn?: string;
+  status_color?: string;
+  status_is_closed?: boolean;
+  priority: number;
+  priority_name?: string;
+  priority_color?: string;
+  priority_weight?: number;
+  billing_method: number;
+  billing_method_name?: string;
+  billing_method_color?: string;
+  total_budget: string;
+  estimated_cost: string;
+  actual_cost: string;
+  used_budget: string;
+  remaining_budget: string;
+  is_over_budget: boolean;
+  overall_progress: number;
+  documents_count: number;
+  billable_total: string;
+  non_billable_total: string;
+  comment: string;
+  created_by?: number | null;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+  modules?: ProjectModule[];
+  expenses?: ProjectExpense[];
+  documents?: ProjectDocument[];
+}
+
+export interface ProjectConfig {
+  statuses: ProjectStatus[];
+  priorities: ProjectPriority[];
+  billing_methods: BillingMethod[];
+  document_categories: DocumentCategory[];
+  code_format: {
+    prefix: string;
+    digits: number;
+    include_year: boolean;
+  };
+  file_rules: {
+    receipt: {
+      allowed_extensions: string;
+      max_size_mb: number;
+    };
+    document: {
+      allowed_extensions: string;
+      max_size_mb: number;
+    };
+  };
+  default_columns: string[];
+  currency_symbol: string;
+  currency_code: string;
+  permissions: {
+    can_view: boolean;
+    can_create: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    can_manage_expenses: boolean;
+    can_manage_documents: boolean;
+    can_manage_modules: boolean;
+    can_change_status: boolean;
+    can_manage_config: boolean;
+    role: string;
+  };
 }
 
 export interface InvoiceItem {
@@ -364,8 +557,9 @@ export interface Invoice {
 
 class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(options.headers as Record<string, string>),
     };
 
@@ -765,8 +959,8 @@ class ApiService {
       skipped_count: number;
       failed_count: number;
       created_invoices: string[];
-      skipped_items: any[];
-      failed_items: any[];
+      skipped_items: unknown[];
+      failed_items: unknown[];
     }>("/recurring-runs/trigger/", { period });
   }
 
@@ -777,6 +971,113 @@ class ApiService {
 
   async getRecurringStatus() {
     return this.get<RecurringDashboardStatus>("/recurring-runs/status/");
+  }
+
+  // Projects Module
+  async getProjects(params?: Record<string, string | number | boolean>) {
+    return this.get<{ count: number; results: Project[] }>("/projects/", params);
+  }
+
+  async getProject(id: number | string) {
+    return this.get<Project>(`/projects/${id}/`);
+  }
+
+  async createProject(data: Partial<Project>) {
+    return this.post<Project>("/projects/", data);
+  }
+
+  async updateProject(id: number | string, data: Partial<Project>) {
+    return this.patch<Project>(`/projects/${id}/`, data);
+  }
+
+  async deleteProject(id: number | string) {
+    return this.delete(`/projects/${id}/`);
+  }
+
+  async getProjectConfig() {
+    return this.get<ProjectConfig>("/projects/config/");
+  }
+
+  // Project Dynamic Options
+  async getProjectOptions<T>(type: string) {
+    return this.get<{ count: number; results: T[] }>(`/project-options/${type}/`);
+  }
+
+  async createProjectOption<T>(type: string, data: Partial<T>) {
+    return this.post<T>(`/project-options/${type}/`, data);
+  }
+
+  async updateProjectOption<T>(type: string, id: number, data: Partial<T>) {
+    return this.patch<T>(`/project-options/${type}/${id}/`, data);
+  }
+
+  async deleteProjectOption(type: string, id: number) {
+    return this.delete(`/project-options/${type}/${id}/`);
+  }
+
+  async reorderProjectOptions(type: string, items: Array<{ id: number; sort_order: number }>) {
+    return this.post<{ detail: string }>(`/project-options/${type}/reorder/`, { items });
+  }
+
+  // Project Permissions
+  async getProjectPermissions() {
+    return this.get<{ count: number; results: ProjectRolePermission[] }>("/project-permissions/");
+  }
+
+  async updateProjectPermission(id: number, data: Partial<ProjectRolePermission>) {
+    return this.patch<ProjectRolePermission>(`/project-permissions/${id}/`, data);
+  }
+
+  // Project Modules
+  async getProjectModules(projectId: number | string) {
+    return this.get<{ count: number; results: ProjectModule[] }>(`/projects/${projectId}/modules/`);
+  }
+
+  async createProjectModule(projectId: number | string, data: Partial<ProjectModule>) {
+    return this.post<ProjectModule>(`/projects/${projectId}/modules/`, data);
+  }
+
+  async updateProjectModule(projectId: number | string, moduleId: number | string, data: Partial<ProjectModule>) {
+    return this.patch<ProjectModule>(`/projects/${projectId}/modules/${moduleId}/`, data);
+  }
+
+  async deleteProjectModule(projectId: number | string, moduleId: number | string) {
+    return this.delete(`/projects/${projectId}/modules/${moduleId}/`);
+  }
+
+  // Project Expenses
+  async getProjectExpenses(projectId: number | string) {
+    return this.get<{ count: number; results: ProjectExpense[] }>(`/projects/${projectId}/expenses/`);
+  }
+
+  async createProjectExpense(projectId: number | string, data: FormData | Partial<ProjectExpense>) {
+    if (typeof FormData !== "undefined" && data instanceof FormData) {
+      return this.request<ProjectExpense>(`/projects/${projectId}/expenses/`, {
+        method: "POST",
+        body: data,
+      });
+    }
+    return this.post<ProjectExpense>(`/projects/${projectId}/expenses/`, data);
+  }
+
+  async deleteProjectExpense(projectId: number | string, expenseId: number | string) {
+    return this.delete(`/projects/${projectId}/expenses/${expenseId}/`);
+  }
+
+  // Project Documents
+  async getProjectDocuments(projectId: number | string) {
+    return this.get<{ count: number; results: ProjectDocument[] }>(`/projects/${projectId}/documents/`);
+  }
+
+  async uploadProjectDocument(projectId: number | string, formData: FormData) {
+    return this.request<ProjectDocument>(`/projects/${projectId}/documents/`, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  async deleteProjectDocument(projectId: number | string, docId: number | string) {
+    return this.delete(`/projects/${projectId}/documents/${docId}/`);
   }
 }
 

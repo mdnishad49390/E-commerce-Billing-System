@@ -1,11 +1,14 @@
 import datetime
 from decimal import Decimal, ROUND_HALF_UP
 import io
+import os
+import uuid
 from django.db import models, transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 import qrcode
 
@@ -103,6 +106,25 @@ class Settings(models.Model):
     auto_billing_day = models.PositiveSmallIntegerField(default=1, help_text="Day of month to run auto-generation (1-31)")
     auto_billing_time = models.TimeField(default=datetime.time(0, 0), help_text="Time of day to run auto-generation")
     auto_billing_timezone = models.CharField(max_length=50, default="Asia/Dhaka", help_text="Timezone for scheduler")
+    scheduler_heartbeat = models.DateTimeField(null=True, blank=True, help_text="Timestamp of the most recent scheduler execution/heartbeat")
+
+    # Project Module Configuration
+    project_code_prefix = models.CharField(max_length=20, default="PRJ")
+    project_code_digits = models.PositiveSmallIntegerField(default=4)
+    project_code_include_year = models.BooleanField(default=True)
+    project_receipt_allowed_extensions = models.CharField(
+        max_length=255, default="pdf,png,jpg,jpeg"
+    )
+    project_receipt_max_size_mb = models.PositiveIntegerField(default=5)
+    project_doc_allowed_extensions = models.CharField(
+        max_length=255, default="pdf,docx,xlsx,png,jpg,zip"
+    )
+    project_doc_max_size_mb = models.PositiveIntegerField(default=25)
+    project_list_default_columns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Visible columns and ordering for Project list"
+    )
 
     class Meta:
         verbose_name_plural = "Settings"
@@ -766,4 +788,354 @@ class RecurringRun(models.Model):
 
     def __str__(self):
         return f"[{self.run_time.strftime('%Y-%m-%d %H:%M')}] {self.trigger} ({self.status}) - Created: {self.created_count}, Skipped: {self.skipped_count}, Failed: {self.failed_count}"
+
+
+# ==============================================================================
+# Dynamic Projects Module: Lookup & Core Models
+# ==============================================================================
+
+def project_receipt_upload_path(instance, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    return os.path.join("protected_media", "project_receipts", safe_name)
+
+
+def project_document_upload_path(instance, filename):
+    ext = os.path.splitext(filename)[1].lower()
+    safe_name = f"{uuid.uuid4().hex}{ext}"
+    return os.path.join("protected_media", "project_documents", safe_name)
+
+
+class ConfigOption(models.Model):
+    """
+    Abstract base for dynamic configuration lookup models.
+    Supports name (English), optional Bengali name (name_bn), color, sort order,
+    active flag, and default flag.
+    """
+    name = models.CharField(max_length=100)
+    name_bn = models.CharField(max_length=100, blank=True, default="")
+    color = models.CharField(max_length=50, default="#64748B")
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = True
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if self.name:
+            clean_name = self.name.strip()
+            qs = self.__class__.objects.filter(name__iexact=clean_name)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({"name": f"An option with name '{clean_name}' already exists."})
+
+        # Cannot deactivate the last active option of a type
+        if self.pk and not self.is_active:
+            active_count = self.__class__.objects.filter(is_active=True).exclude(pk=self.pk).count()
+            if active_count == 0:
+                raise ValidationError({"is_active": "Cannot deactivate the last active option."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        with transaction.atomic():
+            # Exactly one default per type:
+            if self.is_default:
+                self.__class__.objects.exclude(pk=self.pk).filter(is_default=True).update(is_default=False)
+            else:
+                has_default = self.__class__.objects.exclude(pk=self.pk).filter(is_default=True).exists()
+                # If no other option is default and this is being saved, make it default
+                if not has_default and not self.__class__.objects.exclude(pk=self.pk).exists():
+                    self.is_default = True
+            super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Rows in use cannot be hard-deleted
+        for rel in self._meta.related_objects:
+            accessor_name = rel.get_accessor_name()
+            if accessor_name and hasattr(self, accessor_name):
+                related_mgr = getattr(self, accessor_name)
+                if related_mgr.exists():
+                    raise ValidationError(
+                        f"Cannot delete option '{self.name}' because it is in use by existing records. Deactivate it instead."
+                    )
+        super().delete(*args, **kwargs)
+
+
+class ProjectStatus(ConfigOption):
+    is_closed = models.BooleanField(
+        default=False,
+        help_text="If True, project is closed (no new expenses or modules unless privileged)"
+    )
+    is_initial = models.BooleanField(
+        default=False,
+        help_text="Assigned automatically to newly created projects"
+    )
+    allow_staff_set = models.BooleanField(
+        default=False,
+        help_text="STAFF role may transition projects to this status"
+    )
+
+    class Meta(ConfigOption.Meta):
+        verbose_name_plural = "Project Statuses"
+
+    def save(self, *args, **kwargs):
+        if self.is_initial:
+            ProjectStatus.objects.exclude(pk=self.pk).filter(is_initial=True).update(is_initial=False)
+        super().save(*args, **kwargs)
+
+
+class ProjectPriority(ConfigOption):
+    weight = models.IntegerField(default=0, help_text="Used for priority sorting (higher = more urgent)")
+
+    class Meta(ConfigOption.Meta):
+        verbose_name_plural = "Project Priorities"
+
+
+class BillingMethod(ConfigOption):
+    class Meta(ConfigOption.Meta):
+        verbose_name_plural = "Billing Methods"
+
+
+class DocumentCategory(ConfigOption):
+    class Meta(ConfigOption.Meta):
+        verbose_name_plural = "Document Categories"
+
+
+class ProjectSequence(models.Model):
+    """Tracks sequence numbers per project prefix atomically to guarantee unique, concurrency-safe project codes."""
+    prefix = models.CharField(max_length=50, unique=True)
+    last_number = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.prefix}: {self.last_number}"
+
+    @classmethod
+    def generate_next_code(cls, date=None):
+        from .models import Settings
+        st = Settings.objects.first()
+        prefix = getattr(st, "project_code_prefix", "PRJ") if st else "PRJ"
+        digits = getattr(st, "project_code_digits", 4) if st else 4
+        include_year = getattr(st, "project_code_include_year", True) if st else True
+
+        if date is None:
+            date = timezone.now().date()
+
+        if include_year:
+            seq_key = f"{prefix}-{date.year}-"
+        else:
+            seq_key = f"{prefix}-"
+
+        with transaction.atomic():
+            seq, _ = cls.objects.select_for_update().get_or_create(
+                prefix=seq_key,
+                defaults={"last_number": 0}
+            )
+            seq.last_number += 1
+            seq.save()
+            return f"{seq_key}{seq.last_number:0{digits}d}"
+
+
+class ProjectRolePermission(models.Model):
+    role = models.CharField(max_length=20, choices=UserProfile.ROLE_CHOICES, unique=True)
+    can_view = models.BooleanField(default=True)
+    can_create = models.BooleanField(default=False)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    can_manage_expenses = models.BooleanField(default=False)
+    can_manage_documents = models.BooleanField(default=False)
+    can_manage_modules = models.BooleanField(default=False)
+    can_change_status = models.BooleanField(default=False)
+    can_manage_config = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Project Permissions for {self.role}"
+
+    def save(self, *args, **kwargs):
+        # Admin role always possesses all permissions
+        if self.role == UserProfile.ROLE_ADMIN:
+            self.can_view = True
+            self.can_create = True
+            self.can_edit = True
+            self.can_delete = True
+            self.can_manage_expenses = True
+            self.can_manage_documents = True
+            self.can_manage_modules = True
+            self.can_change_status = True
+            self.can_manage_config = True
+        super().save(*args, **kwargs)
+
+
+class Project(models.Model):
+    code = models.CharField(max_length=50, unique=True, editable=False)
+    name = models.CharField(max_length=255)
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="projects")
+    start_date = models.DateField(default=timezone.localdate)
+    end_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    status = models.ForeignKey(ProjectStatus, on_delete=models.PROTECT, related_name="projects")
+    priority = models.ForeignKey(ProjectPriority, on_delete=models.PROTECT, related_name="projects")
+    billing_method = models.ForeignKey(BillingMethod, on_delete=models.PROTECT, related_name="projects")
+    total_budget = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    estimated_cost = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="projects_created"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["client"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date cannot be earlier than start date."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        if not self.code:
+            self.code = ProjectSequence.generate_next_code(date=self.start_date or timezone.now().date())
+        if not hasattr(self, "status") or not self.status_id:
+            initial_status = ProjectStatus.objects.filter(is_initial=True, is_active=True).first()
+            if not initial_status:
+                initial_status = ProjectStatus.objects.filter(is_default=True, is_active=True).first()
+            if initial_status:
+                self.status = initial_status
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Do not hard-delete projects with expenses, documents, or modules
+        if self.expenses.exists() or self.documents.exists() or self.modules.exists():
+            raise ValidationError(
+                "Cannot delete project with existing expenses, documents, or modules. Update status to closed instead."
+            )
+        super().delete(*args, **kwargs)
+
+    @property
+    def actual_cost(self):
+        res = self.expenses.aggregate(total=models.Sum("amount"))["total"]
+        return res if res is not None else Decimal("0.00")
+
+    @property
+    def used_budget(self):
+        # Assumption: used_budget equals actual_cost (total expenses incurred so far)
+        return self.actual_cost
+
+    @property
+    def remaining_budget(self):
+        return self.total_budget - self.used_budget
+
+    @property
+    def is_over_budget(self):
+        return self.remaining_budget < Decimal("0.00")
+
+    @property
+    def overall_progress(self):
+        res = self.modules.aggregate(avg=models.Avg("progress_percent"))["avg"]
+        return round(float(res), 1) if res is not None else 0.0
+
+    @property
+    def documents_count(self):
+        return self.documents.count()
+
+    @property
+    def billable_total(self):
+        res = self.expenses.filter(is_billable=True).aggregate(total=models.Sum("amount"))["total"]
+        return res if res is not None else Decimal("0.00")
+
+    @property
+    def non_billable_total(self):
+        res = self.expenses.filter(is_billable=False).aggregate(total=models.Sum("amount"))["total"]
+        return res if res is not None else Decimal("0.00")
+
+
+class ProjectModule(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="modules")
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    progress_percent = models.PositiveSmallIntegerField(default=0)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.project.code} - {self.name} ({self.progress_percent}%)"
+
+    def clean(self):
+        super().clean()
+        if self.progress_percent < 0 or self.progress_percent > 100:
+            raise ValidationError({"progress_percent": "Progress percentage must be between 0 and 100."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+class ProjectExpense(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="expenses")
+    expense_name = models.CharField(max_length=255)
+    date = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    description = models.TextField(blank=True)
+    is_billable = models.BooleanField(default=True)
+    receipt = models.FileField(upload_to=project_receipt_upload_path, blank=True, null=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"{self.project.code} - {self.expense_name}: {self.amount}"
+
+    def clean(self):
+        super().clean()
+        if self.amount is not None and self.amount <= Decimal("0.00"):
+            raise ValidationError({"amount": "Expense amount must be greater than zero."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+class ProjectDocument(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.PROTECT, related_name="documents")
+    title = models.CharField(max_length=255)
+    category = models.ForeignKey(DocumentCategory, on_delete=models.PROTECT, related_name="documents")
+    file = models.FileField(upload_to=project_document_upload_path)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"{self.project.code} - {self.title}"
+
 
