@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, Invoice, Payment, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Dropdown, StatusBadge } from "@/components/common";
+import { Dropdown, StatusBadge, DatePicker } from "@/components/common";
 import {
   Printer,
   ArrowLeft,
@@ -916,12 +916,12 @@ export default function InvoiceDetailPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Payment Date *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  onChange={setPaymentDate}
+                  required
+                  size="md"
+                  placeholder="Select payment date"
                 />
               </div>
 

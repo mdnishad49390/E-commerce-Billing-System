@@ -106,6 +106,29 @@ export interface Subscription {
   updated_at: string;
 }
 
+export interface GeneratedBillItem {
+  invoice_id?: number;
+  invoice_number: string;
+  client_id?: number;
+  client_name?: string;
+  client_email?: string;
+  client_phone?: string;
+  service_name?: string;
+  period?: string;
+  billing_month?: string;
+  payable_amount?: number;
+  amount?: number;
+  status?: string;
+  email_status?: "SENT" | "FAILED" | "PENDING" | string;
+  email_sent_at?: string | null;
+  email_error?: string;
+  whatsapp_status?: "SENT" | "FAILED" | "PENDING" | string;
+  whatsapp_sent_at?: string | null;
+  whatsapp_error?: string;
+  whatsapp_link?: string;
+  dispatched_at?: string;
+}
+
 export interface RecurringRun {
   id: number;
   run_time: string;
@@ -117,7 +140,7 @@ export interface RecurringRun {
   skipped_count: number;
   failed_count: number;
   details: {
-    created?: Array<{ invoice_number: string; client_name: string; service_name: string; period: string; amount: number; status: string } | string>;
+    created?: Array<GeneratedBillItem | { invoice_number: string; client_name: string; service_name: string; period: string; amount: number; status: string } | string>;
     skipped?: Array<{ subscription_id: number; client_id: number; client_name: string; service_name: string; period: string; reason: string }>;
     failed?: Array<{ subscription_id: number; client_id: number; client_name: string; service_name: string; period: string; error: string }>;
   };
@@ -977,6 +1000,41 @@ class ApiService {
 
   async getRecurringStatus() {
     return this.get<RecurringDashboardStatus>("/recurring-runs/status/");
+  }
+
+  async getRecurringRunGeneratedBills(runId: number | string) {
+    return this.get<GeneratedBillItem[]>(`/recurring-runs/${runId}/generated_bills/`);
+  }
+
+  async resendRecurringBill(payload: {
+    invoice_id?: number;
+    invoice_number?: string;
+    channel?: "all" | "email" | "whatsapp";
+    run_id?: number;
+  }) {
+    return this.post<{
+      message: string;
+      invoice_id: number;
+      invoice_number: string;
+      email_status: "SENT" | "FAILED" | "PENDING" | string;
+      email_error?: string;
+      whatsapp_status: "SENT" | "FAILED" | "PENDING" | string;
+      whatsapp_error?: string;
+      whatsapp_link?: string;
+      results: Record<string, unknown>;
+    }>("/recurring-runs/resend_bill/", payload);
+  }
+
+  async resendInvoiceNotification(invoiceId: number | string, channel: "all" | "email" | "whatsapp" = "all") {
+    return this.post<{
+      message: string;
+      invoice_id: number;
+      invoice_number: string;
+      email_status: string;
+      whatsapp_status: string;
+      whatsapp_link?: string;
+      results: Record<string, unknown>;
+    }>(`/invoices/${invoiceId}/resend_notification/`, { channel });
   }
 
   // Projects Module

@@ -30,6 +30,7 @@ import {
   X,
   ChevronRight,
 } from "lucide-react";
+import { DatePicker } from "@/components/common";
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -123,7 +124,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[500px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent" />
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-cyan-600 border-t-transparent" />
         <p className="mt-4 text-sm font-medium text-slate-500">{t("loading")}</p>
       </div>
     );
@@ -391,7 +392,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center gap-3">
               <Link
                 href="/projects"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-cyan-700 transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 {t("back_to_projects")}
@@ -531,13 +532,13 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
                   isCurrent
-                    ? "bg-indigo-50 text-indigo-700 shadow-xs"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-cyan-50 text-cyan-800 border-cyan-200/80 shadow-xs font-bold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isCurrent ? "text-indigo-600" : "text-slate-400"}`} />
+                <Icon className={`h-4 w-4 ${isCurrent ? "text-cyan-600" : "text-slate-400"}`} />
                 {tab.label}
               </button>
             );
@@ -571,13 +572,13 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     {t("modules_title")}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {t("overall_progress")}: <strong className="text-indigo-600">{progressPercent}%</strong>
+                    {t("overall_progress")}: <strong className="text-cyan-700 font-bold">{progressPercent}%</strong>
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab("modules")}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                  className="text-xs font-semibold text-cyan-700 hover:text-cyan-800"
                 >
                   View all modules &rarr;
                 </button>
@@ -586,7 +587,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               {/* Progress bar */}
               <div className="w-full bg-slate-100 rounded-full h-3 mb-4 overflow-hidden">
                 <div
-                  className="bg-indigo-600 h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-cyan-600 to-cyan-500 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
                 />
               </div>
@@ -695,7 +696,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     setShowModuleModal(true);
                   }}
                   disabled={!canModifyWork}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-xl text-xs font-semibold hover:bg-cyan-500 transition-colors shadow-xs disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   {t("add_module")}
@@ -707,11 +708,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between text-xs mb-2">
                 <span className="font-bold text-slate-700">{t("overall_progress")}</span>
-                <span className="font-bold text-indigo-600">{progressPercent}%</span>
+                <span className="font-bold text-cyan-700">{progressPercent}%</span>
               </div>
               <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-indigo-600 h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-cyan-600 to-cyan-500 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
                 />
               </div>
@@ -723,7 +724,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 {project.modules.map((mod) => (
                   <div
                     key={mod.id}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors"
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-cyan-300 transition-colors"
                   >
                     <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -747,7 +748,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                           value={mod.progress_percent}
                           disabled={!perms.can_manage_modules || !canModifyWork}
                           onChange={(e) => handleUpdateModuleProgress(mod, parseInt(e.target.value, 10))}
-                          className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-lg cursor-pointer disabled:cursor-not-allowed"
+                          className="w-full accent-cyan-600 h-2 bg-slate-200 rounded-lg cursor-pointer disabled:cursor-not-allowed"
                         />
                         <span className="text-xs font-bold text-slate-800 w-10 text-right">
                           {mod.progress_percent}%
@@ -768,7 +769,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                               setModuleError(null);
                               setShowModuleModal(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-cyan-700 hover:bg-slate-50 rounded-lg transition-colors"
                             title={t("edit_module")}
                           >
                             <Edit className="h-4 w-4" />
@@ -879,7 +880,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                 {t("card_actual_cost")}
               </span>
-              <p className="text-xl font-bold text-indigo-600">
+              <p className="text-xl font-bold text-cyan-700">
                 {formatCurrency(project.actual_cost, config.currency_symbol)}
               </p>
               <span className="text-[11px] text-slate-400 block">Direct logged costs</span>
@@ -897,7 +898,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
               <div
                 className={`h-4 rounded-full transition-all duration-500 ${
-                  project.is_over_budget ? "bg-rose-500" : budgetUsagePercent > 80 ? "bg-amber-500" : "bg-indigo-600"
+                  project.is_over_budget ? "bg-rose-500" : budgetUsagePercent > 80 ? "bg-amber-500" : "bg-cyan-600"
                 }`}
                 style={{ width: `${Math.min(100, Math.max(0, budgetUsagePercent))}%` }}
               />
@@ -960,7 +961,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     setShowExpenseModal(true);
                   }}
                   disabled={!canModifyWork}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-xl text-xs font-semibold hover:bg-cyan-500 transition-colors shadow-xs disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   {t("add_expense")}
@@ -997,7 +998,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 placeholder="Filter expenses by item or description..."
                 value={expenseSearch}
                 onChange={(e) => setExpenseSearch(e.target.value)}
-                className="w-full sm:w-80 px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                className="w-full sm:w-80 px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
               />
             </div>
 
@@ -1049,7 +1050,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                               target="_blank"
                               rel="noreferrer"
                               download
-                              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium"
+                              className="inline-flex items-center gap-1 text-cyan-700 hover:text-cyan-800 font-medium"
                             >
                               <Download className="h-3.5 w-3.5" />
                               {exp.receipt_filename || t("download_receipt")}
@@ -1107,7 +1108,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     setDocError(null);
                     setShowDocumentModal(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-xl text-xs font-semibold hover:bg-cyan-500 transition-colors shadow-xs"
                 >
                   <Upload className="h-4 w-4" />
                   {t("upload_document")}
@@ -1121,7 +1122,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 {project.documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-xs transition-all flex flex-col justify-between"
+                    className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-cyan-300 hover:shadow-xs transition-all flex flex-col justify-between"
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
@@ -1154,7 +1155,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         target="_blank"
                         rel="noreferrer"
                         download
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-700 hover:text-cyan-800"
                       >
                         <Download className="h-3.5 w-3.5" />
                         {t("download_doc")}
@@ -1215,7 +1216,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     key={st.id}
                     className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
                       newStatusId === String(st.id)
-                        ? "border-indigo-600 bg-indigo-50/50"
+                        ? "border-cyan-500 bg-cyan-50/50"
                         : "border-slate-200 hover:bg-slate-50"
                     }`}
                   >
@@ -1226,7 +1227,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         value={st.id}
                         checked={newStatusId === String(st.id)}
                         onChange={(e) => setNewStatusId(e.target.value)}
-                        className="accent-indigo-600"
+                        className="accent-cyan-600"
                       />
                       <span
                         className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
@@ -1265,7 +1266,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 type="button"
                 onClick={handleStatusChange}
                 disabled={statusSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
               >
                 {statusSubmitting ? t("saving") : t("change_status_btn")}
               </button>
@@ -1350,7 +1351,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   placeholder={t("module_name_placeholder")}
                   value={moduleName}
                   onChange={(e) => setModuleName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1362,7 +1363,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   rows={2}
                   value={moduleDescription}
                   onChange={(e) => setModuleDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1377,7 +1378,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     max={100}
                     value={moduleProgress}
                     onChange={(e) => setModuleProgress(parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
@@ -1389,7 +1390,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     min={0}
                     value={moduleOrder}
                     onChange={(e) => setModuleOrder(parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
               </div>
@@ -1406,7 +1407,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <button
                 type="submit"
                 disabled={moduleSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
               >
                 {moduleSubmitting ? t("saving") : t("save_changes")}
               </button>
@@ -1447,7 +1448,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   placeholder={t("expense_name_placeholder")}
                   value={expenseName}
                   onChange={(e) => setExpenseName(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1464,19 +1465,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     placeholder="0.00"
                     value={expenseAmount}
                     onChange={(e) => setExpenseAmount(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                   />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
                     {t("expense_date")} *
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <DatePicker
                     value={expenseDate}
-                    onChange={(e) => setExpenseDate(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    onChange={setExpenseDate}
+                    required
+                    size="sm"
+                    placeholder="Select expense date"
                   />
                 </div>
               </div>
@@ -1489,7 +1490,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   rows={2}
                   value={expenseDescription}
                   onChange={(e) => setExpenseDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1510,7 +1511,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     type="checkbox"
                     checked={expenseBillable}
                     onChange={(e) => setExpenseBillable(e.target.checked)}
-                    className="rounded accent-indigo-600 h-4 w-4"
+                    className="rounded accent-cyan-600 h-4 w-4"
                   />
                   <span className="text-xs font-semibold text-slate-700">
                     {t("expense_billable")}
@@ -1530,7 +1531,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <button
                 type="submit"
                 disabled={expenseSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
               >
                 {expenseSubmitting ? t("saving") : t("add_expense")}
               </button>
@@ -1571,7 +1572,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   placeholder={t("doc_title_placeholder")}
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1583,7 +1584,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                   required
                   value={docCategoryId}
                   onChange={(e) => setDocCategoryId(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 >
                   {config.document_categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
@@ -1617,7 +1618,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
               <button
                 type="submit"
                 disabled={docSubmitting}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
               >
                 {docSubmitting ? t("saving") : t("upload_document")}
               </button>

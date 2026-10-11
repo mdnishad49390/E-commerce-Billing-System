@@ -12,3 +12,6 @@ export * from "./SearchBar";
 
 export { default as Button } from "./Button";
 export * from "./Button";
+
+export { default as DatePicker } from "../ui/DatePicker";
+export * from "../ui/DatePicker";

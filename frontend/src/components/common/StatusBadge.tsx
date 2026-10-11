@@ -30,18 +30,18 @@ export default function StatusBadge({
   if (type === "role") {
     switch (normalized) {
       case "ADMIN":
-        badgeStyle = "bg-rose-100 text-rose-800 border-rose-300";
+        badgeStyle = "bg-rose-50 text-rose-700 border-rose-200/80";
         dotColor = "bg-rose-500";
         displayLabel = label || "Admin";
         break;
       case "ACCOUNTANT":
-        badgeStyle = "bg-emerald-100 text-emerald-800 border-emerald-300";
+        badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
         dotColor = "bg-emerald-500";
         displayLabel = label || "Accountant";
         break;
       default:
-        badgeStyle = "bg-indigo-100 text-indigo-800 border-indigo-300";
-        dotColor = "bg-indigo-500";
+        badgeStyle = "bg-cyan-50 text-cyan-800 border-cyan-200/80";
+        dotColor = "bg-cyan-500";
         displayLabel = label || "Staff";
         break;
     }
@@ -63,7 +63,7 @@ export default function StatusBadge({
         displayLabel = label || "Issued";
         break;
       case "DRAFT":
-        badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+        badgeStyle = "bg-slate-50 text-slate-700 border-slate-200";
         dotColor = "bg-slate-400";
         displayLabel = label || "Draft";
         break;
@@ -73,12 +73,12 @@ export default function StatusBadge({
         displayLabel = label || "Cancelled";
         break;
       default:
-        badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+        badgeStyle = "bg-slate-50 text-slate-700 border-slate-200";
         dotColor = "bg-slate-400";
         break;
     }
   } else {
-    // General
+    // General & Projects
     switch (normalized) {
       case "ACTIVE":
       case "SUCCESS":
@@ -86,19 +86,26 @@ export default function StatusBadge({
         badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
         dotColor = "bg-emerald-500";
         break;
+      case "IN_PROGRESS":
+      case "OPEN":
+        badgeStyle = "bg-cyan-50 text-cyan-700 border-cyan-200/80";
+        dotColor = "bg-cyan-500";
+        break;
       case "INACTIVE":
       case "FAILED":
       case "ERROR":
+      case "CLOSED":
         badgeStyle = "bg-rose-50 text-rose-700 border-rose-200/80";
         dotColor = "bg-rose-500";
         break;
       case "PENDING":
       case "RUNNING":
+      case "ON_HOLD":
         badgeStyle = "bg-amber-50 text-amber-700 border-amber-200/80";
         dotColor = "bg-amber-500 animate-pulse";
         break;
       default:
-        badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+        badgeStyle = "bg-slate-50 text-slate-700 border-slate-200";
         dotColor = "bg-slate-400";
         break;
     }

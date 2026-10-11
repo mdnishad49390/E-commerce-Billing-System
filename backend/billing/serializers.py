@@ -235,6 +235,12 @@ class InvoiceListSerializer(serializers.ModelSerializer):
             "paid_amount",
             "due_amount",
             "created_at",
+            "email_sent",
+            "email_sent_at",
+            "whatsapp_sent",
+            "whatsapp_sent_at",
+            "email_status",
+            "whatsapp_status",
         ]
 
 

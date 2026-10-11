@@ -78,6 +78,7 @@ from rest_framework.exceptions import ValidationError
 from django.http import FileResponse
 from . import payment_calendar
 from .services import RecurringBillingService
+from .notification_service import InvoiceNotificationService
 from .permissions import (
     IsAdminRole,
     IsAccountantOrAdmin,
@@ -435,6 +436,148 @@ class RecurringRunViewSet(viewsets.ReadOnlyModelViewSet):
         result = RecurringBillingService.get_dashboard_status()
         return Response(result, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], permission_classes=[IsAdminRole])
+    def generated_bills(self, request, pk=None):
+        """
+        Returns structured list of all invoices generated during this specific run,
+        hydrated with current live status and email/WhatsApp notification state.
+        """
+        run = self.get_object()
+        created_list = run.details.get("created", [])
+        bills = []
+
+        for item in created_list:
+            inv = None
+            if isinstance(item, str):
+                inv = Invoice.objects.filter(invoice_number=item).first()
+            elif isinstance(item, dict):
+                inv_id = item.get("invoice_id")
+                inv_num = item.get("invoice_number")
+                if inv_id:
+                    inv = Invoice.objects.filter(id=inv_id).first()
+                elif inv_num:
+                    inv = Invoice.objects.filter(invoice_number=inv_num).first()
+
+            if inv:
+                bills.append({
+                    "invoice_id": inv.id,
+                    "invoice_number": inv.invoice_number,
+                    "client_id": inv.client_id,
+                    "client_name": inv.client_name or (inv.client.name if inv.client else "Valued Client"),
+                    "client_email": inv.client_email or (inv.client.email if inv.client else ""),
+                    "client_phone": inv.client_phone or (inv.client.phone if inv.client else ""),
+                    "billing_month": inv.billing_month or (item.get("period", "") if isinstance(item, dict) else ""),
+                    "payable_amount": float(inv.payable_amount),
+                    "status": inv.status,
+                    "email_status": inv.email_status,
+                    "email_sent_at": inv.email_sent_at.isoformat() if inv.email_sent_at else None,
+                    "email_error": inv.email_error,
+                    "whatsapp_status": inv.whatsapp_status,
+                    "whatsapp_sent_at": inv.whatsapp_sent_at.isoformat() if inv.whatsapp_sent_at else None,
+                    "whatsapp_error": inv.whatsapp_error,
+                    "whatsapp_link": (item.get("whatsapp_link", "") if isinstance(item, dict) else ""),
+                })
+            elif isinstance(item, dict):
+                bills.append({
+                    "invoice_id": item.get("invoice_id"),
+                    "invoice_number": item.get("invoice_number", "INV"),
+                    "client_id": item.get("client_id"),
+                    "client_name": item.get("client_name", "Client"),
+                    "client_email": item.get("client_email", ""),
+                    "client_phone": item.get("client_phone", ""),
+                    "billing_month": item.get("billing_month", item.get("period", "")),
+                    "payable_amount": float(item.get("amount", 0)),
+                    "status": item.get("status", "ISSUED"),
+                    "email_status": item.get("email_status", "PENDING"),
+                    "email_sent_at": item.get("dispatched_at"),
+                    "email_error": item.get("email_error", ""),
+                    "whatsapp_status": item.get("whatsapp_status", "PENDING"),
+                    "whatsapp_sent_at": item.get("dispatched_at"),
+                    "whatsapp_error": item.get("whatsapp_error", ""),
+                    "whatsapp_link": item.get("whatsapp_link", ""),
+                })
+            else:
+                bills.append({
+                    "invoice_number": str(item),
+                    "status": "UNKNOWN",
+                    "email_status": "PENDING",
+                    "whatsapp_status": "PENDING",
+                })
+
+        return Response(bills, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAdminRole])
+    def resend_bill(self, request):
+        """
+        One-click resend action for a bill generated during a recurring run.
+        Updates the RecurringRun details ledger and re-dispatches PDF to client.
+        """
+        invoice_id = request.data.get("invoice_id")
+        invoice_number = request.data.get("invoice_number")
+        channel = request.data.get("channel", "all")
+        run_id = request.data.get("run_id")
+
+        invoice = None
+        if invoice_id:
+            invoice = Invoice.objects.filter(id=invoice_id).first()
+        if not invoice and invoice_number:
+            invoice = Invoice.objects.filter(invoice_number=invoice_number).first()
+
+        if not invoice:
+            return Response({"error": "Invoice not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        channels = ("email", "whatsapp") if channel == "all" else (channel,)
+        results = InvoiceNotificationService.dispatch_invoice_notifications(invoice, channels=channels)
+
+        # If run_id is supplied, update the run record's details.created entry
+        if run_id:
+            try:
+                run = RecurringRun.objects.filter(id=run_id).first()
+                if run and run.details and "created" in run.details:
+                    details_copy = dict(run.details)
+                    created_list = list(details_copy.get("created", []))
+                    updated = False
+                    for idx, entry in enumerate(created_list):
+                        if isinstance(entry, dict) and (
+                            entry.get("invoice_id") == invoice.id or entry.get("invoice_number") == invoice.invoice_number
+                        ):
+                            entry["email_status"] = invoice.email_status
+                            entry["email_error"] = invoice.email_error
+                            entry["whatsapp_status"] = invoice.whatsapp_status
+                            entry["whatsapp_error"] = invoice.whatsapp_error
+                            if "whatsapp" in results and results["whatsapp"].get("link"):
+                                entry["whatsapp_link"] = results["whatsapp"]["link"]
+                            created_list[idx] = entry
+                            updated = True
+                            break
+                    if updated:
+                        details_copy["created"] = created_list
+                        run.details = details_copy
+                        run.save(update_fields=["details"])
+            except Exception as run_update_err:
+                logger.warning("Failed to update run details upon bill resend: %s", run_update_err)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=request,
+            model_name="RecurringRun",
+            object_id=run_id or invoice.id,
+            object_repr=f"Resent bill #{invoice.invoice_number} via {channel}",
+            changes={"channel": channel, "invoice_id": invoice.id, "results": results},
+        )
+
+        return Response({
+            "message": f"Invoice {invoice.invoice_number} notification re-dispatched.",
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "email_status": invoice.email_status,
+            "email_error": invoice.email_error,
+            "whatsapp_status": invoice.whatsapp_status,
+            "whatsapp_error": invoice.whatsapp_error,
+            "whatsapp_link": results.get("whatsapp", {}).get("link", ""),
+            "results": results,
+        }, status=status.HTTP_200_OK)
+
 
 
 # ==============================================================================
@@ -743,6 +886,38 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAccountantOrAdmin])
+    def resend_notification(self, request, pk=None):
+        """
+        One-click re-dispatch PDF invoice to client's registered Gmail / WhatsApp.
+        """
+        invoice = self.get_object()
+        channel = request.data.get("channel", "all")
+        channels = ("email", "whatsapp") if channel == "all" else (channel,)
+
+        results = InvoiceNotificationService.dispatch_invoice_notifications(invoice, channels=channels)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=request,
+            model_name="Invoice",
+            object_id=invoice.id,
+            object_repr=f"Resent notification for Invoice #{invoice.invoice_number} via {channel}",
+            changes={"channel": channel, "results": results},
+        )
+
+        return Response({
+            "message": f"Notification re-dispatched for invoice {invoice.invoice_number}",
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "email_status": invoice.email_status,
+            "email_error": invoice.email_error,
+            "whatsapp_status": invoice.whatsapp_status,
+            "whatsapp_error": invoice.whatsapp_error,
+            "whatsapp_link": results.get("whatsapp", {}).get("link", ""),
+            "results": results,
+        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"], permission_classes=[IsAccountantOrAdmin])
     def generate_monthly_bills(self, request):

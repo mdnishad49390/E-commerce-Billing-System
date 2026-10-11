@@ -25,6 +25,7 @@ from .models import (
     Settings,
     Subscription,
 )
+from .notification_service import InvoiceNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -438,13 +439,38 @@ class RecurringBillingService:
                 )
 
                 if code == "CREATED":
+                    # Automated notification dispatch to client's Gmail and WhatsApp
+                    notif_data = {
+                        "email": {"status": "PENDING", "error": ""},
+                        "whatsapp": {"status": "PENDING", "error": "", "link": ""},
+                    }
+                    try:
+                        notif_data = InvoiceNotificationService.dispatch_invoice_notifications(inv_or_obj)
+                    except Exception as notif_err:
+                        logger.warning("Automated notification dispatch failed for invoice %s: %s", inv_or_obj.id, notif_err)
+                        if "email" in notif_data:
+                            notif_data["email"]["error"] = str(notif_err)
+                        if "whatsapp" in notif_data:
+                            notif_data["whatsapp"]["error"] = str(notif_err)
+
                     created_invoices.append({
+                        "invoice_id": inv_or_obj.id,
                         "invoice_number": inv_or_obj.invoice_number,
+                        "client_id": sub.client.id,
                         "client_name": sub.client.name,
+                        "client_email": sub.client.email or inv_or_obj.client_email,
+                        "client_phone": sub.client.phone or inv_or_obj.client_phone,
                         "service_name": sub.effective_name,
                         "period": p_key,
+                        "billing_month": inv_or_obj.billing_month or p_key,
                         "amount": float(inv_or_obj.payable_amount),
                         "status": inv_or_obj.status,
+                        "email_status": notif_data.get("email", {}).get("status", inv_or_obj.email_status),
+                        "email_error": notif_data.get("email", {}).get("error", inv_or_obj.email_error),
+                        "whatsapp_status": notif_data.get("whatsapp", {}).get("status", inv_or_obj.whatsapp_status),
+                        "whatsapp_error": notif_data.get("whatsapp", {}).get("error", inv_or_obj.whatsapp_error),
+                        "whatsapp_link": notif_data.get("whatsapp", {}).get("link", ""),
+                        "dispatched_at": timezone.now().isoformat(),
                     })
                 elif code == "SKIPPED":
                     skipped_items.append({

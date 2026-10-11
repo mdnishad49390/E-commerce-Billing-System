@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { api, Invoice, Payment, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import PaymentCalendarTab from "@/components/payments/PaymentCalendarTab";
-import { Dropdown, MetricCard, SearchBar, StatusBadge } from "@/components/common";
+import { Dropdown, MetricCard, SearchBar, StatusBadge, DatePicker } from "@/components/common";
 import {
   CreditCard,
   Search,
@@ -226,13 +226,13 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
             Payments & Due Tracking
-          </h2>
-          <p className="text-slate-500 text-sm">
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">
             Monitor payment collections, record transaction entries, download official Money Receipts, and track outstanding receivables
           </p>
         </div>
@@ -241,9 +241,9 @@ export default function PaymentsPage() {
           <button
             onClick={() => handleOpenPaymentModal()}
             disabled={dueInvoices.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 hover:shadow-cyan-600/30 cursor-pointer disabled:opacity-50 shrink-0 w-fit"
           >
-            <CreditCard size={18} />
+            <CreditCard size={17} />
             Record Payment
           </button>
         )}
@@ -322,48 +322,48 @@ export default function PaymentsPage() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex flex-wrap p-1.5 bg-slate-100/90 border border-slate-200/80 rounded-2xl gap-1.5 shadow-xs">
         <button
           onClick={() => setActiveTab("transactions")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === "transactions"
-              ? "bg-cyan-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
+              ? "bg-white text-cyan-800 shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-slate-200/80"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <CreditCard size={15} />
+          <CreditCard size={15} className={activeTab === "transactions" ? "text-cyan-600" : "text-slate-400"} />
           All Transactions
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === "transactions" ? "bg-cyan-700 text-white" : "bg-slate-200 text-slate-700"}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "transactions" ? "bg-cyan-50 text-cyan-700 border border-cyan-200/60" : "bg-slate-200 text-slate-600"}`}>
             {payments.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("due_invoices")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === "due_invoices"
-              ? "bg-amber-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
+              ? "bg-white text-amber-800 shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-amber-200/80"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <Clock size={15} />
+          <Clock size={15} className={activeTab === "due_invoices" ? "text-amber-600" : "text-slate-400"} />
           Due Invoices
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === "due_invoices" ? "bg-amber-700 text-white" : "bg-slate-200 text-slate-700"}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "due_invoices" ? "bg-amber-50 text-amber-700 border border-amber-200/60" : "bg-slate-200 text-slate-600"}`}>
             {dueInvoices.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("paid_invoices")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === "paid_invoices"
-              ? "bg-emerald-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
+              ? "bg-white text-emerald-800 shadow-[0_2px_8px_rgba(0,0,0,0.06)] border border-emerald-200/80"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
           }`}
         >
-          <CheckCircle2 size={15} />
+          <CheckCircle2 size={15} className={activeTab === "paid_invoices" ? "text-emerald-600" : "text-slate-400"} />
           Fully Paid Invoices
-          <span className={`px-2 py-0.5 rounded-full text-[10px] ${activeTab === "paid_invoices" ? "bg-emerald-700 text-white" : "bg-slate-200 text-slate-700"}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${activeTab === "paid_invoices" ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60" : "bg-slate-200 text-slate-600"}`}>
             {paidInvoices.length}
           </span>
         </button>
@@ -395,22 +395,24 @@ export default function PaymentsPage() {
           />
 
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span>From:</span>
-            <input
-              type="date"
+            <span className="shrink-0">From:</span>
+            <DatePicker
               value={dateAfterFilter}
-              onChange={(e) => setDateAfterFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              onChange={setDateAfterFilter}
+              size="sm"
+              placeholder="From date"
+              className="w-36"
             />
           </div>
 
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span>To:</span>
-            <input
-              type="date"
+            <span className="shrink-0">To:</span>
+            <DatePicker
               value={dateBeforeFilter}
-              onChange={(e) => setDateBeforeFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-2.5 py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              onChange={setDateBeforeFilter}
+              size="sm"
+              placeholder="To date"
+              className="w-36"
             />
           </div>
 
@@ -771,12 +773,12 @@ export default function PaymentsPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Payment Date *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  onChange={setPaymentDate}
+                  required
+                  size="md"
+                  placeholder="Select payment date"
                 />
               </div>
 
