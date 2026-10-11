@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import * as XLSX from "xlsx";
 import { api, Invoice, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Dropdown, MetricCard, SearchBar, StatusBadge } from "@/components/common";
@@ -16,6 +17,9 @@ import {
   DollarSign,
   CheckCircle2,
   AlertCircle,
+  FileSpreadsheet,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 
 export default function InvoicesListPage() {
@@ -30,6 +34,11 @@ export default function InvoicesListPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [hasDueFilter, setHasDueFilter] = useState(false);
   const [billingMonthFilter, setBillingMonthFilter] = useState("");
+
+  // Summary Download state
+  const [downloadSummaryLoading, setDownloadSummaryLoading] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Payment Modal State
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -47,6 +56,17 @@ export default function InvoicesListPage() {
     total_overdue?: string;
   } | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState("Tk");
+
+  // Close export dropdown when clicked outside
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const loadInvoices = async () => {
     try {
@@ -66,8 +86,9 @@ export default function InvoicesListPage() {
       if (summaryRes) {
         setSummary(summaryRes);
       }
-      if (setRes?.currency_symbol) {
-        setCurrencySymbol(setRes.currency_symbol);
+      const settingsObj = (setRes as any)?.results?.[0] || setRes;
+      if (settingsObj?.currency_symbol) {
+        setCurrencySymbol(settingsObj.currency_symbol);
       }
     } catch (err) {
       console.error("Failed to load invoices:", err);
@@ -89,6 +110,180 @@ export default function InvoicesListPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     loadInvoices();
+  };
+
+  // Excel Summary Download Handler
+  const handleDownloadSummary = async (categoryOverride?: string) => {
+    try {
+      setDownloadSummaryLoading(true);
+      setIsExportMenuOpen(false);
+
+      // Build filter parameters based on categoryOverride or active filters
+      const targetParams: Record<string, any> = { page_size: 100 };
+      let categoryLabel = "Filtered";
+
+      if (categoryOverride === "ALL") {
+        categoryLabel = "All_Invoices";
+      } else if (categoryOverride === "ISSUED") {
+        targetParams.status = "ISSUED";
+        categoryLabel = "Issued_Unpaid";
+      } else if (categoryOverride === "PARTIALLY_PAID") {
+        targetParams.status = "PARTIALLY_PAID";
+        categoryLabel = "Partially_Paid";
+      } else if (categoryOverride === "PAID") {
+        targetParams.status = "PAID";
+        categoryLabel = "Fully_Paid";
+      } else if (categoryOverride === "DRAFT") {
+        targetParams.status = "DRAFT";
+        categoryLabel = "Draft";
+      } else if (categoryOverride === "DUE_ONLY") {
+        targetParams.has_due = true;
+        categoryLabel = "Due_Bills";
+      } else {
+        // Use active screen filters
+        if (search) targetParams.search = search;
+        if (statusFilter) targetParams.status = statusFilter;
+        if (hasDueFilter) targetParams.has_due = true;
+        if (billingMonthFilter) targetParams.billing_month = billingMonthFilter;
+
+        categoryLabel = statusFilter
+          ? statusFilter
+          : hasDueFilter
+          ? "Due_Bills"
+          : billingMonthFilter
+          ? `Month_${billingMonthFilter}`
+          : "All_Invoices";
+      }
+
+      // Fetch all invoices for this category (with pagination up to 1000 items)
+      let exportInvoices: Invoice[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        try {
+          const res = await api.getInvoices({ ...targetParams, page });
+          const items = res.results || [];
+          exportInvoices = exportInvoices.concat(items);
+          if (!res.next || items.length === 0 || exportInvoices.length >= 1000) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } catch (fetchErr) {
+          console.error("Pagination fetch error:", fetchErr);
+          hasMore = false;
+        }
+      }
+
+      // Fallback to current view if empty
+      if (exportInvoices.length === 0 && !categoryOverride && invoices.length > 0) {
+        exportInvoices = invoices;
+      }
+
+      if (exportInvoices.length === 0) {
+        alert("No invoices found for the selected category to download.");
+        return;
+      }
+
+      // Prepare table columns matching screenshot
+      const headerRow = [
+        "INVOICE #",
+        "CLIENT",
+        "TITLE / SERVICE",
+        "CLIENT & TITLE",
+        "BILLING MONTH",
+        `PAYABLE (${currencySymbol})`,
+        `PAID (${currencySymbol})`,
+        `DUE (${currencySymbol})`,
+        "STATUS",
+        "ISSUE DATE",
+        "DUE DATE",
+      ];
+
+      let sumPayable = 0;
+      let sumPaid = 0;
+      let sumDue = 0;
+
+      const dataRows = exportInvoices.map((inv) => {
+        const payable = parseFloat(inv.payable_amount || "0") || 0;
+        const paid = parseFloat(inv.paid_amount || "0") || 0;
+        const due = parseFloat(inv.due_amount || "0") || 0;
+
+        sumPayable += payable;
+        sumPaid += paid;
+        sumDue += due;
+
+        return [
+          inv.invoice_number || `INV-${inv.id}`,
+          inv.client_name || "",
+          inv.title || "",
+          `${inv.client_name || ""}${inv.title ? ` - ${inv.title}` : ""}`,
+          inv.billing_month || inv.issue_date || "",
+          payable,
+          paid,
+          due,
+          inv.status || "",
+          inv.issue_date || "",
+          inv.due_date || "",
+        ];
+      });
+
+      // Total Summary Row
+      const summaryRow = [
+        "TOTAL",
+        "",
+        "",
+        `Total Records: ${exportInvoices.length}`,
+        "",
+        sumPayable,
+        sumPaid,
+        sumDue,
+        "",
+        "",
+        "",
+      ];
+
+      // Format Sheet Data
+      const aoa = [
+        [`INVOICES SUMMARY REPORT - ${categoryLabel.replace(/_/g, " ").toUpperCase()}`],
+        [`Generated On: ${new Date().toLocaleString()} | Currency: ${currencySymbol} | Total Count: ${exportInvoices.length}`],
+        [],
+        headerRow,
+        ...dataRows,
+        summaryRow,
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Auto-fit column widths
+      worksheet["!cols"] = [
+        { wch: 18 }, // Invoice #
+        { wch: 25 }, // Client
+        { wch: 32 }, // Title / Service
+        { wch: 38 }, // Client & Title
+        { wch: 16 }, // Billing Month
+        { wch: 16 }, // Payable
+        { wch: 16 }, // Paid
+        { wch: 16 }, // Due
+        { wch: 15 }, // Status
+        { wch: 14 }, // Issue Date
+        { wch: 14 }, // Due Date
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Invoices Summary");
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const fileName = `Invoices_Summary_${categoryLabel}_${todayStr}.xlsx`;
+
+      XLSX.writeFile(workbook, fileName);
+    } catch (err: any) {
+      console.error("Failed to export summary Excel:", err);
+      alert("Failed to download summary: " + (err.message || "Unknown error"));
+    } finally {
+      setDownloadSummaryLoading(false);
+    }
   };
 
   const handleOpenPayment = (inv: Invoice) => {
@@ -156,6 +351,165 @@ export default function InvoicesListPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Invoices</h2>
           <p className="text-slate-500 text-sm">Manage and track software billing statements</p>
+        </div>
+
+        {/* Download Summary Button with Category Selection */}
+        <div className="flex items-center gap-3">
+          <div className="relative inline-block text-left" ref={exportMenuRef}>
+            <div className="inline-flex rounded-xl shadow-xs border border-emerald-600/30 overflow-hidden">
+              {/* Primary button: Downloads summary for the current active category/filter */}
+              <button
+                type="button"
+                onClick={() => handleDownloadSummary()}
+                disabled={downloadSummaryLoading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold text-xs tracking-wide transition-all cursor-pointer disabled:opacity-60 active:scale-[0.99]"
+                title={`Download summary for: ${statusFilter || (hasDueFilter ? "Due Bills" : "All Invoices")}`}
+              >
+                {downloadSummaryLoading ? (
+                  <Loader2 size={16} className="animate-spin text-white" />
+                ) : (
+                  <FileSpreadsheet size={16} className="text-emerald-100" />
+                )}
+                <span>Download Summary</span>
+                {statusFilter && (
+                  <span className="hidden sm:inline-block bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                    {statusFilter}
+                  </span>
+                )}
+                {hasDueFilter && !statusFilter && (
+                  <span className="hidden sm:inline-block bg-amber-400 text-amber-950 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                    DUE
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown arrow toggle */}
+              <button
+                type="button"
+                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                disabled={downloadSummaryLoading}
+                className="inline-flex items-center px-2.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white border-l border-emerald-500/40 transition-colors disabled:opacity-60 cursor-pointer"
+                title="Choose invoice category to download"
+              >
+                <ChevronDown
+                  size={15}
+                  className={`transition-transform duration-200 ${isExportMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
+
+            {/* Category Dropdown Menu */}
+            {isExportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Download Summary (.xlsx)
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Select invoice category to export:
+                  </div>
+                </div>
+
+                <div className="py-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary()}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                      Current Filtered Invoices
+                    </span>
+                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                      {statusFilter || (hasDueFilter ? "Due" : "Active")}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("ALL")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                      All Invoices (All Categories)
+                    </span>
+                    <span className="text-[10px] text-slate-400">All</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("ISSUED")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                      Issued / Unpaid Invoices
+                    </span>
+                    <span className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded font-semibold border border-blue-200">
+                      ISSUED
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("PAID")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Fully Paid Invoices
+                    </span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-semibold border border-emerald-200">
+                      PAID
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("PARTIALLY_PAID")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Partially Paid Invoices
+                    </span>
+                    <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-semibold border border-amber-200">
+                      PARTIAL
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("DUE_ONLY")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                      Only Due Bills
+                    </span>
+                    <span className="text-[10px] text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded font-semibold border border-rose-200">
+                      DUE
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadSummary("DRAFT")}
+                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/70 flex items-center justify-between text-slate-800 transition-colors cursor-pointer group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                      Draft Invoices
+                    </span>
+                    <span className="text-[10px] text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded font-semibold border border-slate-200">
+                      DRAFT
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -252,6 +606,21 @@ export default function InvoicesListPage() {
             }`}
           >
             ⚠️ Only Due Bills
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDownloadSummary()}
+            disabled={downloadSummaryLoading}
+            className="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-60"
+            title="Download Excel summary of current filtered view"
+          >
+            {downloadSummaryLoading ? (
+              <Loader2 size={14} className="animate-spin text-emerald-700" />
+            ) : (
+              <FileSpreadsheet size={14} className="text-emerald-700" />
+            )}
+            <span>Download Summary</span>
           </button>
         </div>
       </div>
