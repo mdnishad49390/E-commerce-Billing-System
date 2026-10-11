@@ -388,6 +388,14 @@ class Invoice(models.Model):
         help_text="Standardized period key e.g. '2026-05' or 'May-2026'"
     )
 
+    # Automated Notification & Dispatch Tracking
+    email_sent = models.BooleanField(default=False)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_error = models.TextField(blank=True, default="")
+    whatsapp_sent = models.BooleanField(default=False)
+    whatsapp_sent_at = models.DateTimeField(null=True, blank=True)
+    whatsapp_error = models.TextField(blank=True, default="")
+
     class Meta:
         ordering = ["-issue_date", "-id"]
         constraints = [
@@ -400,6 +408,22 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"{self.invoice_number or 'Draft'} - {self.client_name or self.client.name} ({self.payable_amount} {self.currency_symbol})"
+
+    @property
+    def email_status(self):
+        if self.email_sent:
+            return "SENT"
+        if self.email_error:
+            return "FAILED"
+        return "PENDING"
+
+    @property
+    def whatsapp_status(self):
+        if self.whatsapp_sent:
+            return "SENT"
+        if self.whatsapp_error:
+            return "FAILED"
+        return "PENDING"
 
     def populate_snapshots(self):
         """Copies company, client, and bank details to freeze them on the invoice"""
