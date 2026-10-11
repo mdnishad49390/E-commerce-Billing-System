@@ -233,7 +233,21 @@ export interface Payment {
 
 export type CalendarStatus = "PAID" | "PARTIALLY_PAID" | "DUE" | "OVERDUE" | "UPCOMING" | "NO_PAYMENT";
 
+export interface CalendarPaymentLine {
+  id: number;
+  receipt_number: string;
+  amount: string;
+  payment_date: string;
+  payment_method: string | null;
+  transaction_id: string;
+  note: string;
+}
+
 export interface CalendarItem {
+  purpose: string;
+  issue_date: string | null;
+  is_partial: boolean;
+  payments: CalendarPaymentLine[];
   key: string;
   has_invoice: boolean;
   invoice_id: number | null;
@@ -275,6 +289,16 @@ export interface CalendarSummary {
   overdue_clients: number;
   no_payment_clients: number;
   total_bills: number;
+  counts: Record<CalendarStatus, number>;
+}
+
+/** One row per invoice (billing obligation) with a single status. */
+export interface ObligationsResponse {
+  year: number;
+  month: number;
+  today: string;
+  summary: CalendarSummary;
+  rows: CalendarItem[];
 }
 
 export interface CalendarResponse {
@@ -596,6 +620,19 @@ class ApiService {
   // Monthly payment calendar (computed server-side from invoices & payments)
   async getPaymentCalendar(params: { month: number; year: number; client?: number | string; status?: string; method?: number | string }) {
     return this.get<CalendarResponse>("/payments/calendar/", params);
+  }
+
+  // month/year = BILLING month and year; start_date/end_date optionally narrow by invoice issue date
+  async getPaymentObligations(params: {
+    month: number;
+    year: number;
+    start_date?: string;
+    end_date?: string;
+    search?: string;
+    status?: string;
+    method?: number | string;
+  }) {
+    return this.get<ObligationsResponse>("/payments/obligations/", params);
   }
 
   async getClientPaymentHistory(clientId: number | string, months = 12) {
