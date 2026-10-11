@@ -648,36 +648,46 @@ export default function InvoicesListPage() {
             No invoices found matching your filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-left text-sm text-slate-700 table-auto">
-              <thead className="bg-slate-50/90 text-xs uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
+          <div className="overflow-auto max-h-[calc(100vh-270px)]">
+            <table className="w-full min-w-[900px] xl:min-w-full text-left text-sm text-slate-700 table-fixed border-collapse">
+              <colgroup>
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "12%" }} />
+              </colgroup>
+              <thead className="bg-slate-50/95 backdrop-blur-md text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200 sticky top-0 z-20 shadow-2xs">
                 <tr>
-                  <th className="py-4 px-5 w-[165px] min-w-[155px] whitespace-nowrap">Invoice #</th>
-                  <th className="py-4 px-5 min-w-[220px] max-w-[280px]">Client & Title</th>
-                  <th className="py-4 px-5 w-[150px] min-w-[140px] whitespace-nowrap">Billing Month</th>
-                  <th className="py-4 px-5 text-right w-[130px] min-w-[125px] whitespace-nowrap">Payable</th>
-                  <th className="py-4 px-5 text-right w-[125px] min-w-[115px] whitespace-nowrap">Paid</th>
-                  <th className="py-4 px-5 text-right w-[125px] min-w-[115px] whitespace-nowrap">Due</th>
-                  <th className="py-4 px-5 text-center w-[120px] min-w-[115px] whitespace-nowrap">Status</th>
-                  <th className="py-4 px-5 text-right w-[190px] min-w-[180px] whitespace-nowrap">Actions</th>
+                  <th className="py-3.5 pl-5 pr-3 text-left whitespace-nowrap">Invoice #</th>
+                  <th className="py-3.5 px-3 text-left">Client & Title</th>
+                  <th className="py-3.5 px-3 text-left whitespace-nowrap">Billing Month</th>
+                  <th className="py-3.5 px-3 text-right whitespace-nowrap">Payable</th>
+                  <th className="py-3.5 px-3 text-right whitespace-nowrap">Paid</th>
+                  <th className="py-3.5 px-3 text-right whitespace-nowrap">Due</th>
+                  <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
+                  <th className="py-3.5 pl-3 pr-5 text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={inv.id} className="hover:bg-cyan-50/20 transition-colors">
                     {/* Invoice Number */}
-                    <td className="py-4 px-5 whitespace-nowrap">
+                    <td className="py-3.5 pl-5 pr-3 whitespace-nowrap align-middle">
                       <a
                         href={`/invoices/${inv.id}`}
                         title={`View invoice ${inv.invoice_number}`}
-                        className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-cyan-800 bg-cyan-50/90 hover:bg-cyan-100/90 px-2.5 py-1 rounded-lg border border-cyan-200/80 transition-colors group"
+                        className="inline-flex items-center gap-1 font-mono text-xs font-bold text-cyan-800 bg-cyan-50/90 hover:bg-cyan-100/90 px-2.5 py-1 rounded-lg border border-cyan-200/80 transition-colors group"
                       >
                         <span className="group-hover:underline">{inv.invoice_number}</span>
                       </a>
                     </td>
 
                     {/* Client & Title */}
-                    <td className="py-4 px-5 min-w-[220px] max-w-[280px]">
+                    <td className="py-3.5 px-3 align-middle overflow-hidden">
                       <div className="font-bold text-slate-900 truncate" title={inv.client_name}>
                         {inv.client_name}
                       </div>
@@ -689,93 +699,95 @@ export default function InvoicesListPage() {
                     </td>
 
                     {/* Billing Month & Issue Date */}
-                    <td className="py-4 px-5 whitespace-nowrap text-xs text-slate-600">
-                      <span className="inline-block font-semibold bg-slate-100/90 text-slate-700 px-2.5 py-0.5 rounded-md border border-slate-200/70">
+                    <td className="py-3.5 px-3 whitespace-nowrap align-middle text-xs text-slate-600">
+                      <span className="inline-block font-semibold bg-slate-100/90 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200/70 text-xs">
                         {inv.billing_month || inv.issue_date}
                       </span>
                       {inv.billing_month && inv.issue_date ? (
-                        <div className="text-[11px] text-slate-400 mt-1">
+                        <div className="text-[11px] text-slate-400 mt-0.5">
                           Issued: {inv.issue_date}
                         </div>
                       ) : null}
                     </td>
 
                     {/* Payable */}
-                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-slate-900">
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap align-middle font-mono font-bold text-slate-900">
                       {parseFloat(inv.payable_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
 
                     {/* Paid */}
-                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-emerald-600">
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap align-middle font-mono font-bold text-emerald-600">
                       {parseFloat(inv.paid_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
 
                     {/* Due */}
-                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-amber-600">
+                    <td className="py-3.5 px-3 text-right whitespace-nowrap align-middle font-mono font-bold text-amber-600">
                       {parseFloat(inv.due_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
 
                     {/* Status */}
-                    <td className="py-4 px-5 text-center whitespace-nowrap">
+                    <td className="py-3.5 px-3 text-center whitespace-nowrap align-middle">
                       <StatusBadge status={inv.status} type="invoice" />
                     </td>
 
                     {/* Actions */}
-                    <td className="py-4 px-5 text-right whitespace-nowrap space-x-1.5">
-                      {/* View & Print Details */}
-                      <a
-                        href={`/invoices/${inv.id}`}
-                        title="View Details"
-                        className="inline-flex items-center p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
-                      >
-                        <Printer size={15} />
-                      </a>
-
-                      {/* Download PDF */}
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
-                        disabled={downloadingId === inv.id}
-                        title="Download PDF"
-                        className="inline-flex items-center p-2 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 transition-colors cursor-pointer disabled:opacity-60"
-                      >
-                        {downloadingId === inv.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                      </button>
-
-                      {/* Record Payment */}
-                      {isAccountant && parseFloat(inv.due_amount) > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPayment(inv)}
-                          title="Record Payment"
-                          className="inline-flex items-center p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
-                        >
-                          <CreditCard size={15} />
-                        </button>
-                      )}
-
-                      {/* Edit */}
-                      {isAccountant && (
+                    <td className="py-3.5 pl-3 pr-5 text-right whitespace-nowrap align-middle">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        {/* View & Print Details */}
                         <a
-                          href={`/invoices/${inv.id}/edit`}
-                          title="Edit Bill"
-                          className="inline-flex items-center p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                          href={`/invoices/${inv.id}`}
+                          title="View Details"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
                         >
-                          <Edit size={15} />
+                          <Printer size={13.5} />
                         </a>
-                      )}
 
-                      {/* Delete (Admin Only) */}
-                      {isAdmin && (
+                        {/* Download PDF */}
                         <button
                           type="button"
-                          onClick={() => handleDelete(inv.id, inv.invoice_number)}
-                          title="Delete Bill"
-                          className="inline-flex items-center p-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
+                          onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
+                          disabled={downloadingId === inv.id}
+                          title="Download PDF"
+                          className="p-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 transition-colors cursor-pointer disabled:opacity-60"
                         >
-                          <Trash2 size={15} />
+                          {downloadingId === inv.id ? <Loader2 size={13.5} className="animate-spin" /> : <Download size={13.5} />}
                         </button>
-                      )}
+
+                        {/* Record Payment */}
+                        {isAccountant && parseFloat(inv.due_amount) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPayment(inv)}
+                            title="Record Payment"
+                            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors cursor-pointer"
+                          >
+                            <CreditCard size={13.5} />
+                          </button>
+                        )}
+
+                        {/* Edit */}
+                        {isAccountant && (
+                          <a
+                            href={`/invoices/${inv.id}/edit`}
+                            title="Edit Bill"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                          >
+                            <Edit size={13.5} />
+                          </a>
+                        )}
+
+                        {/* Delete (Admin Only) */}
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(inv.id, inv.invoice_number)}
+                            title="Delete Bill"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={13.5} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
