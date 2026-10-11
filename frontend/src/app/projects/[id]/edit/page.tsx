@@ -15,6 +15,7 @@ import {
   Save,
   AlertCircle,
 } from "lucide-react";
+import { DatePicker } from "@/components/common";
 
 export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -255,11 +256,11 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
               {t("field_start_date")}
             </label>
-            <input
-              type="date"
+            <DatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+              onChange={setStartDate}
+              size="md"
+              placeholder={t("field_start_date")}
             />
           </div>
 
@@ -267,11 +268,11 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
               {t("field_end_date")}
             </label>
-            <input
-              type="date"
+            <DatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+              onChange={setEndDate}
+              size="md"
+              placeholder={t("field_end_date")}
             />
           </div>
 

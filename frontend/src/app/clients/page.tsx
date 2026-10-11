@@ -172,19 +172,19 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Clients</h2>
-          <p className="text-slate-500 text-sm">Manage business clients and service subscriptions</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Clients</h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">Manage business clients, custom service pricing, and active subscriptions</p>
         </div>
 
         {isAccountant && (
           <button
             onClick={handleOpenAdd}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 hover:shadow-cyan-600/30 cursor-pointer shrink-0 w-fit"
           >
-            <Plus size={18} />
+            <Plus size={17} />
             Add New Client
           </button>
         )}

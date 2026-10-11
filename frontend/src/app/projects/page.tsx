@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Layers,
 } from "lucide-react";
+import { MetricCard, Dropdown, DropdownOption } from "@/components/common";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -148,33 +149,93 @@ export default function ProjectsPage() {
     return { total, overBudgetCount, openCount, closedCount };
   }, [projects, totalCount]);
 
+  // Memoized options for filter dropdowns
+  const statusOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: t("filter_all_statuses") },
+      ...(config?.statuses?.map((s) => ({
+        value: String(s.id),
+        label: s.name,
+        badge: s.is_closed ? "Closed" : undefined,
+        badgeColor: "bg-rose-50 text-rose-700 border border-rose-200/80",
+      })) || []),
+    ],
+    [config?.statuses]
+  );
+
+  const priorityOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: t("filter_all_priorities") },
+      ...(config?.priorities?.map((p) => ({
+        value: String(p.id),
+        label: p.name,
+      })) || []),
+    ],
+    [config?.priorities]
+  );
+
+  const clientOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: t("filter_all_clients") },
+      ...clients.map((c) => ({
+        value: String(c.id),
+        label: c.name,
+        secondary: c.phone || c.email || undefined,
+      })),
+    ],
+    [clients]
+  );
+
+  const lifecycleOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: "", label: "All Projects" },
+      {
+        value: "open",
+        label: t("filter_open_projects"),
+        badge: "Open",
+        badgeColor: "bg-cyan-50 text-cyan-800 border border-cyan-200/80",
+      },
+      {
+        value: "closed",
+        label: t("filter_closed_projects"),
+        badge: "Closed",
+        badgeColor: "bg-rose-50 text-rose-700 border border-rose-200/80",
+      },
+    ],
+    []
+  );
+
+  const hasActiveFilters = Boolean(
+    searchQuery ||
+    selectedStatus ||
+    selectedPriority ||
+    selectedClient ||
+    closedFilter ||
+    selectedBillingMethod ||
+    startDateAfter ||
+    startDateBefore
+  );
+
   const currencySymbol = config?.currency_symbol || "";
   const canCreate = config?.permissions?.can_create ?? false;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-cyan-600/10 border border-cyan-600/20 flex items-center justify-center text-cyan-600 shadow-xs">
-              <Briefcase size={22} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {t("projects_title")}
-              </h1>
-              <p className="text-slate-500 text-sm">{t("projects_subtitle")}</p>
-            </div>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+            {t("projects_title")}
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">{t("projects_subtitle")}</p>
         </div>
 
         {canCreate && (
           <Link
             href="/projects/new"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium text-sm px-4 py-2.5 rounded-xl shadow-xs transition-all active:scale-[0.98] w-fit"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 hover:shadow-cyan-600/30 cursor-pointer w-fit shrink-0"
           >
-            <Plus size={18} />
+            <Plus size={17} />
             <span>{t("nav_new_project")}</span>
           </Link>
         )}
@@ -182,125 +243,128 @@ export default function ProjectsPage() {
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>{t("total_projects_count")}</span>
-            <FolderOpen size={16} className="text-cyan-600" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{summaryMetrics.total}</p>
-        </div>
+        <MetricCard
+          title={t("total_projects_count")}
+          value={summaryMetrics.total}
+          subtitle="All registered projects"
+          icon={FolderOpen}
+          color="blue"
+        />
 
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>{t("filter_open_projects")}</span>
-            <Layers size={16} className="text-blue-600" />
-          </div>
-          <p className="text-2xl font-bold text-blue-600 mt-2">{summaryMetrics.openCount}</p>
-        </div>
+        <MetricCard
+          title={t("filter_open_projects")}
+          value={summaryMetrics.openCount}
+          subtitle="Active / In-progress"
+          icon={Layers}
+          color="cyan"
+        />
 
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>{t("filter_closed_projects")}</span>
-            <Briefcase size={16} className="text-slate-500" />
-          </div>
-          <p className="text-2xl font-bold text-slate-600 mt-2">{summaryMetrics.closedCount}</p>
-        </div>
+        <MetricCard
+          title={t("filter_closed_projects")}
+          value={summaryMetrics.closedCount}
+          subtitle="Completed & settled"
+          icon={Briefcase}
+          color="emerald"
+        />
 
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <span>Over Budget</span>
-            <AlertTriangle size={16} className="text-rose-500" />
-          </div>
-          <p className="text-2xl font-bold text-rose-600 mt-2">{summaryMetrics.overBudgetCount}</p>
-        </div>
+        <MetricCard
+          title="Over Budget"
+          value={summaryMetrics.overBudgetCount}
+          subtitle="Exceeded budget threshold"
+          icon={AlertTriangle}
+          color="rose"
+        />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs space-y-3">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
+      <div className="relative z-20 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs">
+        <form onSubmit={handleSearchSubmit} className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("search_placeholder")}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+              className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all font-medium"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Status Filter */}
-            <select
+            <Dropdown
               value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value);
+              onChange={(val) => {
+                setSelectedStatus(String(val));
                 setPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20"
-            >
-              <option value="">{t("filter_all_statuses")}</option>
-              {config?.statuses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              options={statusOptions}
+              placeholder={t("filter_all_statuses")}
+              size="sm"
+              className="w-full sm:w-44"
+            />
 
             {/* Priority Filter */}
-            <select
+            <Dropdown
               value={selectedPriority}
-              onChange={(e) => {
-                setSelectedPriority(e.target.value);
+              onChange={(val) => {
+                setSelectedPriority(String(val));
                 setPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20"
-            >
-              <option value="">{t("filter_all_priorities")}</option>
-              {config?.priorities.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              options={priorityOptions}
+              placeholder={t("filter_all_priorities")}
+              size="sm"
+              className="w-full sm:w-40"
+            />
 
             {/* Client Filter */}
-            <select
+            <Dropdown
               value={selectedClient}
-              onChange={(e) => {
-                setSelectedClient(e.target.value);
+              onChange={(val) => {
+                setSelectedClient(String(val));
                 setPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20"
-            >
-              <option value="">{t("filter_all_clients")}</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              options={clientOptions}
+              placeholder={t("filter_all_clients")}
+              size="sm"
+              searchable={clients.length > 5}
+              searchPlaceholder="Search client..."
+              className="w-full sm:w-48"
+            />
 
-            {/* Closed / Open lifecycle filter */}
-            <select
+            {/* Closed / Open lifecycle filter ("All Projects") */}
+            <Dropdown
               value={closedFilter}
-              onChange={(e) => {
-                setClosedFilter(e.target.value);
+              onChange={(val) => {
+                setClosedFilter(String(val));
                 setPage(1);
               }}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20"
-            >
-              <option value="">{t("filter_all_lifecycle")}</option>
-              <option value="open">{t("filter_open_projects")}</option>
-              <option value="closed">{t("filter_closed_projects")}</option>
-            </select>
+              options={lifecycleOptions}
+              placeholder="All Projects"
+              size="sm"
+              className="w-full sm:w-40"
+            />
 
             {/* Clear filters button */}
-            {(searchQuery || selectedStatus || selectedPriority || selectedClient || closedFilter) && (
+            {hasActiveFilters && (
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
+                title={t("clear_filters")}
               >
                 <X size={14} />
                 <span>{t("clear_filters")}</span>

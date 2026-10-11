@@ -6,6 +6,7 @@ import {
   RecurringRun,
   RecurringPreviewResponse,
   RecurringDashboardStatus,
+  GeneratedBillItem,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -25,15 +26,21 @@ import {
   Info,
   Layers,
   Search,
+  Mail,
+  Send,
+  MessageSquare,
+  RotateCw,
+  ExternalLink,
+  Check,
+  AlertCircle,
+  Phone,
+  Download,
+  RefreshCw,
 } from "lucide-react";
 
-interface CreatedInvoiceItem {
-  invoice_number?: string;
-  client_name?: string;
+interface CreatedInvoiceItem extends GeneratedBillItem {
   service_name?: string;
   period?: string;
-  amount?: number;
-  status?: string;
 }
 
 interface SkippedSubscriptionItem {
@@ -93,6 +100,103 @@ export default function RecurringRunsPage() {
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const [triggerPeriod, setTriggerPeriod] = useState(getCurrentMonthString());
   const [triggerSubmitting, setTriggerSubmitting] = useState(false);
+
+  // Generated Bills Ledger state inside Selected Run Modal
+  const [runBills, setRunBills] = useState<CreatedInvoiceItem[]>([]);
+  const [billsLoading, setBillsLoading] = useState(false);
+  const [resendingKey, setResendingKey] = useState<string | number | null>(null);
+  const [resendNotificationNotice, setResendNotificationNotice] = useState<string | null>(null);
+  const [billFilterTerm, setBillFilterTerm] = useState("");
+
+  // Sync and fetch generated bills for selected run
+  useEffect(() => {
+    if (!selectedRun) {
+      setRunBills([]);
+      setResendNotificationNotice(null);
+      setBillFilterTerm("");
+      return;
+    }
+
+    // Initialize from snapshot details.created
+    const initialList: CreatedInvoiceItem[] = (selectedRun.details?.created || []).map((item) => {
+      if (typeof item === "string") {
+        return { invoice_number: item, client_name: "Client", status: "ISSUED" };
+      }
+      return item as CreatedInvoiceItem;
+    });
+    setRunBills(initialList);
+
+    // Hydrate with live status and timestamps from backend
+    let active = true;
+    setBillsLoading(true);
+    api.getRecurringRunGeneratedBills(selectedRun.id)
+      .then((liveBills) => {
+        if (active && liveBills && liveBills.length > 0) {
+          setRunBills(liveBills as CreatedInvoiceItem[]);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch live bills:", err);
+      })
+      .finally(() => {
+        if (active) setBillsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedRun]);
+
+  const handleResendBill = async (
+    bill: CreatedInvoiceItem,
+    channel: "all" | "email" | "whatsapp" = "all"
+  ) => {
+    const key = bill.invoice_id || bill.invoice_number;
+    if (!key) return;
+
+    try {
+      setResendingKey(key);
+      setErrorMsg("");
+      setResendNotificationNotice(null);
+
+      const res = await api.resendRecurringBill({
+        invoice_id: bill.invoice_id,
+        invoice_number: bill.invoice_number,
+        channel,
+        run_id: selectedRun?.id,
+      });
+
+      // Update state in runBills
+      setRunBills((prev) =>
+        prev.map((b) => {
+          if (
+            (bill.invoice_id && b.invoice_id === bill.invoice_id) ||
+            (bill.invoice_number && b.invoice_number === bill.invoice_number)
+          ) {
+            return {
+              ...b,
+              email_status: res.email_status || b.email_status,
+              email_error: res.email_error !== undefined ? res.email_error : b.email_error,
+              whatsapp_status: res.whatsapp_status || b.whatsapp_status,
+              whatsapp_error: res.whatsapp_error !== undefined ? res.whatsapp_error : b.whatsapp_error,
+              whatsapp_link: res.whatsapp_link || b.whatsapp_link,
+            };
+          }
+          return b;
+        })
+      );
+
+      const channelLabel =
+        channel === "all" ? "Email & WhatsApp" : channel === "email" ? "Email" : "WhatsApp";
+      setResendNotificationNotice(
+        `Invoice ${bill.invoice_number} successfully re-dispatched via ${channelLabel}!`
+      );
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err, "Failed to resend invoice notification"));
+    } finally {
+      setResendingKey(null);
+    }
+  };
 
   // Trigger button references for returning focus
   const previewButtonRef = useRef<HTMLButtonElement>(null);
@@ -261,7 +365,7 @@ export default function RecurringRunsPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-10">
       {/* 1. Header Banner & Action Buttons */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 bg-gradient-to-br from-white via-slate-50/90 to-cyan-50/40 p-6 md:p-8 rounded-3xl border border-slate-200/90 shadow-[0_10px_30px_-10px_rgba(6,182,212,0.1)] relative overflow-hidden">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)] relative overflow-hidden">
         {/* Subtle decorative glow */}
         <div className="absolute -top-12 -right-12 w-64 h-64 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-12 left-1/3 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -271,7 +375,7 @@ export default function RecurringRunsPage() {
             <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
               Recurring Runs Audit
             </h1>
-            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-cyan-100/80 text-cyan-800 border border-cyan-200/90 shadow-2xs">
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/90 shadow-2xs">
               Admin Only
             </span>
           </div>
@@ -653,116 +757,416 @@ export default function RecurringRunsPage() {
             }
           }}
         >
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 md:p-8 max-w-6xl w-full shadow-2xl max-h-[92vh] overflow-y-auto space-y-6 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
               <div>
-                <h2 id="details-modal-title" className="text-xl font-bold text-slate-900">
-                  Run Execution Details
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Target Period: <span className="font-bold text-slate-800">{selectedRun.target_period || "Auto"}</span> |{" "}
-                  Trigger: <span className="font-bold text-slate-800">{selectedRun.trigger}</span>
+                <div className="flex items-center gap-2">
+                  <h2 id="details-modal-title" className="text-xl font-extrabold text-slate-900 tracking-tight">
+                    Recurring Billing Run #{selectedRun.id}
+                  </h2>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedRun.status === "SUCCESS"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : selectedRun.status === "PARTIAL"
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    {selectedRun.status === "SUCCESS" && <CheckCircle2 size={12} />}
+                    {selectedRun.status === "PARTIAL" && <AlertTriangle size={12} />}
+                    {selectedRun.status === "FAILED" && <XCircle size={12} />}
+                    {selectedRun.status}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Target Period: <span className="font-semibold text-slate-800">{selectedRun.target_period || "Auto"}</span> |{" "}
+                  Trigger: <span className="font-semibold text-slate-800">{selectedRun.trigger}</span> |{" "}
+                  Executed:{" "}
+                  <span className="font-semibold text-slate-800">
+                    {new Date(selectedRun.run_time).toLocaleString("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </span>
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedRun(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                aria-label="Close dialog"
-              >
-                <X size={18} />
-              </button>
+
+              {/* KPI Badges */}
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                  <CheckCircle2 size={14} className="text-emerald-600" />
+                  <span>{selectedRun.created_count} Generated</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                  <AlertTriangle size={14} className="text-amber-600" />
+                  <span>{selectedRun.skipped_count} Skipped</span>
+                </div>
+                {selectedRun.failed_count > 0 && (
+                  <div className="px-3 py-1.5 rounded-xl bg-rose-50/80 border border-rose-200/80 text-rose-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                    <XCircle size={14} className="text-rose-600" />
+                    <span>{selectedRun.failed_count} Failed</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRun(null)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer ml-1"
+                  aria-label="Close dialog"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            {selectedRun.error_message && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono">
-                <strong>Error:</strong> {selectedRun.error_message}
+            {/* In-Modal Alerts */}
+            {resendNotificationNotice && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-2xs animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{resendNotificationNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResendNotificationNotice(null)}
+                  className="text-emerald-600 hover:text-emerald-900 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
               </div>
             )}
 
-            {/* Created Invoices */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 size={14} />
-                  Created Invoices ({formatCount(selectedRun.created_count, "invoice", "invoices")})
-                </h3>
-                {selectedRun.details?.created && selectedRun.details.created.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto border border-emerald-100 rounded-2xl divide-y divide-emerald-50 text-xs bg-emerald-50/20">
-                    {selectedRun.details.created.map((inv, idx) => {
-                      const item = inv as CreatedInvoiceItem | string;
-                      const num = typeof item === "string" ? item : item.invoice_number || `Invoice #${idx + 1}`;
-                      const client = typeof item === "string" ? "" : item.client_name || "";
-                      const amount = typeof item === "string" ? "" : item.amount !== undefined ? `${item.amount} ${currencySymbol}` : "";
-                      return (
-                        <div key={idx} className="p-3 flex items-center justify-between">
-                          <div>
-                            <span className="font-mono font-bold text-slate-800">{num}</span>
-                            {client && <span className="text-slate-600 ml-2">{client}</span>}
-                          </div>
-                          {amount && <span className="font-bold text-emerald-700">{amount}</span>}
-                        </div>
-                      );
-                    })}
+            {selectedRun.error_message && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono shadow-2xs">
+                <strong>Execution Error:</strong> {selectedRun.error_message}
+              </div>
+            )}
+
+            {/* Generated Bills Ledger / Sheet */}
+            <div className="bg-slate-50/50 border border-slate-200/90 rounded-2xl p-4 md:p-5 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-600/10 border border-cyan-600/20 flex items-center justify-center text-cyan-700">
+                    <FileText size={16} />
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">None created during this run.</p>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                      Generated Bills Ledger
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Invoices dispatched for this run with Email/WhatsApp delivery tracking
+                    </p>
+                  </div>
+                  {billsLoading && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-600 ml-2">
+                      <Loader2 size={12} className="animate-spin" /> Syncing...
+                    </span>
+                  )}
+                </div>
+
+                {/* Filter / Search within ledger */}
+                {runBills.length > 3 && (
+                  <div className="relative min-w-[200px] max-w-xs">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={billFilterTerm}
+                      onChange={(e) => setBillFilterTerm(e.target.value)}
+                      placeholder="Filter invoices or clients..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
                 )}
               </div>
 
-              {/* Skipped Items */}
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5">
-                  <AlertTriangle size={14} className="text-amber-500" />
-                  Skipped Subscriptions ({formatCount(selectedRun.skipped_count, "subscription", "subscriptions")})
-                </h3>
-                {selectedRun.details?.skipped && selectedRun.details.skipped.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 text-xs">
-                    {selectedRun.details.skipped.map((sk, idx) => {
-                      const item = sk as SkippedSubscriptionItem;
-                      return (
-                        <div key={idx} className="p-3 flex items-center justify-between gap-3">
-                          <span className="font-semibold text-slate-700">{item.client_name || `Sub #${item.subscription_id}`}</span>
-                          <span className="text-slate-500 text-[11px] bg-slate-100 px-2.5 py-0.5 rounded-full shrink-0">
-                            {item.reason || "Already billed"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">None skipped.</p>
-                )}
-              </div>
+              {runBills.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 italic bg-white rounded-xl border border-dashed border-slate-200">
+                  No invoices were generated during this run.
+                </div>
+              ) : (
+                <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-50/90 text-[10px] uppercase tracking-wider font-extrabold text-slate-500 border-b border-slate-200/80">
+                      <tr>
+                        <th className="py-3 px-4">Invoice #</th>
+                        <th className="py-3 px-4">Client Name</th>
+                        <th className="py-3 px-4">Billing Month</th>
+                        <th className="py-3 px-4">Payable Amount</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Notification Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {runBills
+                        .filter((b) => {
+                          if (!billFilterTerm.trim()) return true;
+                          const q = billFilterTerm.toLowerCase();
+                          return (
+                            (b.invoice_number || "").toLowerCase().includes(q) ||
+                            (b.client_name || "").toLowerCase().includes(q) ||
+                            (b.billing_month || b.period || "").toLowerCase().includes(q)
+                          );
+                        })
+                        .map((bill, bIdx) => {
+                          const isResending =
+                            resendingKey === bill.invoice_id || resendingKey === bill.invoice_number;
+                          const amountVal =
+                            bill.payable_amount !== undefined
+                              ? bill.payable_amount
+                              : bill.amount !== undefined
+                              ? bill.amount
+                              : 0;
 
-              {/* Failed Items */}
-              {selectedRun.details?.failed && selectedRun.details.failed.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 mb-2 flex items-center gap-1.5">
-                    <XCircle size={14} />
-                    Failed Subscriptions ({formatCount(selectedRun.failed_count, "item", "items")})
-                  </h3>
-                  <div className="max-h-48 overflow-y-auto border border-rose-200 rounded-2xl divide-y divide-rose-100 text-xs bg-rose-50/30">
-                    {selectedRun.details.failed.map((fl, idx) => {
-                      const item = fl as FailedSubscriptionItem;
-                      return (
-                        <div key={idx} className="p-3 text-rose-900 space-y-1">
-                          <div className="font-bold flex items-center justify-between">
-                            <span>{item.client_name || "Unknown Client"}</span>
-                            <span className="text-[11px] font-mono text-rose-600">Sub #{item.subscription_id}</span>
-                          </div>
-                          <div className="text-[11px] font-mono bg-white/60 p-2 rounded-lg border border-rose-100 break-words">
-                            {item.error || "Execution failed"}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                          return (
+                            <tr
+                              key={bIdx}
+                              className="hover:bg-cyan-50/20 transition-colors duration-100 group"
+                            >
+                              {/* Invoice Number */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                                    {bill.invoice_number || `INV-${bIdx + 1}`}
+                                  </span>
+                                  {bill.invoice_id && (
+                                    <a
+                                      href={`/invoices`}
+                                      className="text-slate-400 hover:text-cyan-600 transition-colors"
+                                      title="Open in Invoices"
+                                    >
+                                      <ExternalLink size={12} />
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Client Name */}
+                              <td className="py-3 px-4 max-w-[200px]">
+                                <div className="truncate">
+                                  <div className="font-bold text-slate-800 truncate">
+                                    {bill.client_name || "Client"}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 truncate">
+                                    {bill.client_email && (
+                                      <span className="truncate" title={bill.client_email}>
+                                        {bill.client_email}
+                                      </span>
+                                    )}
+                                    {bill.client_phone && (
+                                      <span className="font-mono shrink-0">
+                                        {bill.client_phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Billing Month */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <span className="font-semibold text-slate-700">
+                                  {bill.billing_month || bill.period || selectedRun.target_period || "-"}
+                                </span>
+                              </td>
+
+                              {/* Payable Amount */}
+                              <td className="py-3 px-4 whitespace-nowrap font-bold text-slate-900">
+                                <span>
+                                  {amountVal.toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
+                                  <span className="text-slate-400 font-normal text-[10px]">{currencySymbol}</span>
+                                </span>
+                              </td>
+
+                              {/* Invoice Status */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-2xs ${
+                                    bill.status === "PAID"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                                      : bill.status === "PARTIALLY_PAID"
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200/80"
+                                      : "bg-blue-50 text-blue-700 border border-blue-200/80"
+                                  }`}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                  {bill.status || "ISSUED"}
+                                </span>
+                              </td>
+
+                              {/* Notification Status (Email & WhatsApp) */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  {/* Email Badge */}
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      bill.email_status === "SENT"
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : bill.email_status === "FAILED"
+                                        ? "bg-rose-50 text-rose-700 border border-rose-200 cursor-help"
+                                        : "bg-slate-100 text-slate-500 border border-slate-200"
+                                    }`}
+                                    title={
+                                      bill.email_status === "SENT"
+                                        ? `Sent to ${bill.client_email || "Gmail"}`
+                                        : bill.email_error || "Email delivery status"
+                                    }
+                                  >
+                                    <Mail size={11} />
+                                    {bill.email_status === "SENT" ? (
+                                      <>
+                                        <Check size={10} /> Email
+                                      </>
+                                    ) : bill.email_status === "FAILED" ? (
+                                      "Email Fail"
+                                    ) : (
+                                      "Email"
+                                    )}
+                                  </span>
+
+                                  {/* WhatsApp Badge */}
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      bill.whatsapp_status === "SENT"
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : bill.whatsapp_status === "FAILED"
+                                        ? "bg-rose-50 text-rose-700 border border-rose-200 cursor-help"
+                                        : "bg-slate-100 text-slate-500 border border-slate-200"
+                                    }`}
+                                    title={
+                                      bill.whatsapp_status === "SENT"
+                                        ? `Sent to WhatsApp ${bill.client_phone || ""}`
+                                        : bill.whatsapp_error || "WhatsApp delivery status"
+                                    }
+                                  >
+                                    <MessageSquare size={11} />
+                                    {bill.whatsapp_status === "SENT" ? (
+                                      <>
+                                        <Check size={10} /> WA
+                                      </>
+                                    ) : bill.whatsapp_status === "FAILED" ? (
+                                      "WA Fail"
+                                    ) : (
+                                      "WA"
+                                    )}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* One-Click Resend Action & Links */}
+                              <td className="py-3 px-4 whitespace-nowrap text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {/* Resend Action Button */}
+                                  <button
+                                    type="button"
+                                    disabled={isResending}
+                                    onClick={() => handleResendBill(bill, "all")}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-2xs hover:shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                                    title="Instantly re-dispatch PDF invoice via Email and WhatsApp"
+                                  >
+                                    <RotateCw
+                                      size={11}
+                                      className={isResending ? "animate-spin" : ""}
+                                    />
+                                    <span>{isResending ? "Sending..." : "Resend"}</span>
+                                  </button>
+
+                                  {/* Direct WhatsApp Web Link */}
+                                  {(bill.whatsapp_link || bill.client_phone) && (
+                                    <a
+                                      href={
+                                        bill.whatsapp_link ||
+                                        `https://api.whatsapp.com/send?phone=${encodeURIComponent(
+                                          bill.client_phone || ""
+                                        )}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition-colors shadow-2xs"
+                                      title="Open WhatsApp Chat directly"
+                                    >
+                                      <MessageSquare size={12} />
+                                    </a>
+                                  )}
+
+                                  {/* Download PDF button if invoice_id available */}
+                                  {bill.invoice_id && (
+                                    <a
+                                      href={`/api/proxy/invoices/${bill.invoice_id}/download_pdf/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded-lg text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                      title="Download Invoice PDF"
+                                    >
+                                      <Download size={12} />
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
+            {/* Skipped Subscriptions Section */}
+            {selectedRun.details?.skipped && selectedRun.details.skipped.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="text-amber-500" />
+                  Skipped Subscriptions ({formatCount(selectedRun.skipped_count, "subscription", "subscriptions")})
+                </h4>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-2xl divide-y divide-slate-100 text-xs bg-white">
+                  {selectedRun.details.skipped.map((sk, idx) => {
+                    const item = sk as SkippedSubscriptionItem;
+                    return (
+                      <div key={idx} className="p-2.5 flex items-center justify-between gap-3">
+                        <span className="font-semibold text-slate-700 truncate">
+                          {item.client_name || `Sub #${item.subscription_id}`}
+                        </span>
+                        <span className="text-slate-500 text-[10px] bg-slate-100 px-2 py-0.5 rounded-full shrink-0 font-medium">
+                          {item.reason || "Already billed"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Failed Subscriptions Section */}
+            {selectedRun.details?.failed && selectedRun.details.failed.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
+                  <XCircle size={14} />
+                  Failed Subscriptions ({formatCount(selectedRun.failed_count, "item", "items")})
+                </h4>
+                <div className="max-h-40 overflow-y-auto border border-rose-200 rounded-2xl divide-y divide-rose-100 text-xs bg-rose-50/20">
+                  {selectedRun.details.failed.map((fl, idx) => {
+                    const item = fl as FailedSubscriptionItem;
+                    return (
+                      <div key={idx} className="p-2.5 text-rose-900 space-y-1">
+                        <div className="font-bold flex items-center justify-between">
+                          <span>{item.client_name || "Unknown Client"}</span>
+                          <span className="text-[10px] font-mono text-rose-600">Sub #{item.subscription_id}</span>
+                        </div>
+                        <div className="text-[10px] font-mono bg-white/70 p-1.5 rounded border border-rose-100 break-words">
+                          {item.error || "Execution failed"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Run record #{selectedRun.id} — Audit Log & Automated Dispatch
+              </span>
               <button
                 type="button"
                 onClick={() => setSelectedRun(null)}

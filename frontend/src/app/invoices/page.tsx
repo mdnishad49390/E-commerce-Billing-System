@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, Invoice, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Dropdown, MetricCard, SearchBar, StatusBadge } from "@/components/common";
+import { Dropdown, MetricCard, SearchBar, StatusBadge, DatePicker } from "@/components/common";
 import {
   Printer,
   Edit,
@@ -16,6 +16,7 @@ import {
   DollarSign,
   CheckCircle2,
   AlertCircle,
+  PlusCircle,
 } from "lucide-react";
 
 export default function InvoicesListPage() {
@@ -151,12 +152,21 @@ export default function InvoicesListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Invoices</h2>
-          <p className="text-slate-500 text-sm">Manage and track software billing statements</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Invoices</h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">Manage and track software billing statements and client payments</p>
         </div>
+        {isAccountant && (
+          <a
+            href="/invoices/new"
+            className="px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-cyan-600/20 hover:shadow-cyan-600/30 w-fit shrink-0"
+          >
+            <PlusCircle size={17} />
+            Create New Bill
+          </a>
+        )}
       </div>
 
       {/* Metrics Summary Strip */}
@@ -431,12 +441,12 @@ export default function InvoicesListPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Payment Date
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  onChange={setPaymentDate}
+                  required
+                  size="md"
+                  placeholder="Select payment date"
                 />
               </div>
 

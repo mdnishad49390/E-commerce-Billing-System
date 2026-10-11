@@ -100,36 +100,36 @@ export default function AuditLogsPage() {
       case "UPDATE":
         return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">Updated</span>;
       case "DELETE":
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-100 text-red-800 border border-red-300">Deleted</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">Deleted</span>;
       case "STATUS_CHANGE":
         return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-50 text-purple-700 border border-purple-200">Status Change</span>;
       case "PASSWORD_CHANGE":
         return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-cyan-50 text-cyan-700 border border-cyan-200">Password Change</span>;
       default:
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">{action}</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-50 text-slate-700 border border-slate-200">{action}</span>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-cyan-100 text-cyan-700 rounded-xl">
-            <History size={22} />
+      {/* Top Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/20 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 bg-cyan-50 border border-cyan-200/80 text-cyan-700 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs">
+            <History size={24} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">System Audit Logs</h1>
-            <p className="text-xs text-slate-500">Security trail, login activities, invoice & payment modifications</p>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">System Audit Logs</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Security trail, login activities, invoice & payment modifications</p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={loadLogs}
-          className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-800 rounded-xl text-xs md:text-sm font-semibold border border-slate-200 shadow-xs hover:shadow-sm transition-all cursor-pointer self-start sm:self-auto"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={15} className={loading ? "animate-spin text-cyan-600" : "text-cyan-600"} />
           <span>Refresh Logs</span>
         </button>
       </div>
