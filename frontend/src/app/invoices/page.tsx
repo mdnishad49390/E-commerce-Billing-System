@@ -649,45 +649,79 @@ export default function InvoicesListPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
+            <table className="w-full min-w-[1100px] text-left text-sm text-slate-700 table-auto">
+              <thead className="bg-slate-50/90 text-xs uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="py-4 px-6">Invoice #</th>
-                  <th className="py-4 px-6">Client & Title</th>
-                  <th className="py-4 px-6">Billing Month</th>
-                  <th className="py-4 px-6 text-right">Payable</th>
-                  <th className="py-4 px-6 text-right">Paid</th>
-                  <th className="py-4 px-6 text-right">Due</th>
-                  <th className="py-4 px-6 text-center">Status</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
+                  <th className="py-4 px-5 w-[165px] min-w-[155px] whitespace-nowrap">Invoice #</th>
+                  <th className="py-4 px-5 min-w-[220px] max-w-[280px]">Client & Title</th>
+                  <th className="py-4 px-5 w-[150px] min-w-[140px] whitespace-nowrap">Billing Month</th>
+                  <th className="py-4 px-5 text-right w-[130px] min-w-[125px] whitespace-nowrap">Payable</th>
+                  <th className="py-4 px-5 text-right w-[125px] min-w-[115px] whitespace-nowrap">Paid</th>
+                  <th className="py-4 px-5 text-right w-[125px] min-w-[115px] whitespace-nowrap">Due</th>
+                  <th className="py-4 px-5 text-center w-[120px] min-w-[115px] whitespace-nowrap">Status</th>
+                  <th className="py-4 px-5 text-right w-[190px] min-w-[180px] whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-4 px-6 font-mono text-xs font-bold text-cyan-700">
-                      {inv.invoice_number}
+                    {/* Invoice Number */}
+                    <td className="py-4 px-5 whitespace-nowrap">
+                      <a
+                        href={`/invoices/${inv.id}`}
+                        title={`View invoice ${inv.invoice_number}`}
+                        className="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-cyan-800 bg-cyan-50/90 hover:bg-cyan-100/90 px-2.5 py-1 rounded-lg border border-cyan-200/80 transition-colors group"
+                      >
+                        <span className="group-hover:underline">{inv.invoice_number}</span>
+                      </a>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="font-bold text-slate-900">{inv.client_name}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-xs">{inv.title}</div>
+
+                    {/* Client & Title */}
+                    <td className="py-4 px-5 min-w-[220px] max-w-[280px]">
+                      <div className="font-bold text-slate-900 truncate" title={inv.client_name}>
+                        {inv.client_name}
+                      </div>
+                      {inv.title ? (
+                        <div className="text-xs text-slate-500 truncate mt-0.5" title={inv.title}>
+                          {inv.title}
+                        </div>
+                      ) : null}
                     </td>
-                    <td className="py-4 px-6 text-slate-500 text-xs">
-                      {inv.billing_month || inv.issue_date}
+
+                    {/* Billing Month & Issue Date */}
+                    <td className="py-4 px-5 whitespace-nowrap text-xs text-slate-600">
+                      <span className="inline-block font-semibold bg-slate-100/90 text-slate-700 px-2.5 py-0.5 rounded-md border border-slate-200/70">
+                        {inv.billing_month || inv.issue_date}
+                      </span>
+                      {inv.billing_month && inv.issue_date ? (
+                        <div className="text-[11px] text-slate-400 mt-1">
+                          Issued: {inv.issue_date}
+                        </div>
+                      ) : null}
                     </td>
-                    <td className="py-4 px-6 text-right font-bold text-slate-900">
-                      {parseFloat(inv.payable_amount).toLocaleString()} {inv.currency_symbol}
+
+                    {/* Payable */}
+                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-slate-900">
+                      {parseFloat(inv.payable_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
-                    <td className="py-4 px-6 text-right font-bold text-emerald-600">
-                      {parseFloat(inv.paid_amount).toLocaleString()} {inv.currency_symbol}
+
+                    {/* Paid */}
+                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-emerald-600">
+                      {parseFloat(inv.paid_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
-                    <td className="py-4 px-6 text-right font-bold text-amber-600">
-                      {parseFloat(inv.due_amount).toLocaleString()} {inv.currency_symbol}
+
+                    {/* Due */}
+                    <td className="py-4 px-5 text-right whitespace-nowrap font-mono font-bold text-amber-600">
+                      {parseFloat(inv.due_amount || "0").toLocaleString()} {inv.currency_symbol || "Tk"}
                     </td>
-                    <td className="py-4 px-6 text-center">
+
+                    {/* Status */}
+                    <td className="py-4 px-5 text-center whitespace-nowrap">
                       <StatusBadge status={inv.status} type="invoice" />
                     </td>
-                    <td className="py-4 px-6 text-right space-x-1.5 whitespace-nowrap">
+
+                    {/* Actions */}
+                    <td className="py-4 px-5 text-right whitespace-nowrap space-x-1.5">
                       {/* View & Print Details */}
                       <a
                         href={`/invoices/${inv.id}`}
