@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { CreditCard, Loader2, X } from "lucide-react";
 import { api, CalendarItem, Payment, PaymentMethod } from "@/lib/api";
+import { DatePicker } from "@/components/common";
 import { errMsg, money, shortDate } from "./paymentStatus";
 
 interface Props {
@@ -104,7 +105,14 @@ export default function RecordPaymentModal({ item, choices, paymentMethods, toda
           </div>
           <div>
             <label htmlFor="rp-date" className={labelCls}>Payment Date *</label>
-            <input id="rp-date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            <DatePicker
+              id="rp-date"
+              value={date}
+              onChange={setDate}
+              required
+              size="md"
+              placeholder="Select payment date"
+            />
           </div>
           <div>
             <label htmlFor="rp-method" className={labelCls}>Payment Method *</label>
