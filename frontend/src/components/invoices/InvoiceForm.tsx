@@ -14,7 +14,7 @@ import {
 } from "@/lib/api";
 import { Plus, Trash2, ArrowLeft, Save } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { Dropdown } from "@/components/common";
+import { Dropdown, DatePicker } from "@/components/common";
 
 interface InvoiceFormProps {
   initialData?: Invoice;
@@ -396,12 +396,12 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               Issue Date
             </label>
-            <input
-              type="date"
-              required
+            <DatePicker
               value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 shadow-2xs"
+              onChange={setIssueDate}
+              required
+              size="md"
+              placeholder="Select issue date"
             />
           </div>
         </div>

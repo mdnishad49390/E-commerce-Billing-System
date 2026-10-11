@@ -26,6 +26,7 @@ import {
   PieChart,
   X,
 } from "lucide-react";
+import { DatePicker } from "@/components/common";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -560,7 +561,14 @@ export default function PaymentCalendarTab({ paymentMethods, isAccountant, onPay
               </div>
               <div>
                 <label htmlFor="cal-date" className={labelCls}>Payment Date *</label>
-                <input id="cal-date" type="date" required value={payDate} onChange={(e) => setPayDate(e.target.value)} className={inputCls} />
+                <DatePicker
+                  id="cal-date"
+                  value={payDate}
+                  onChange={setPayDate}
+                  required
+                  size="md"
+                  placeholder="Select payment date"
+                />
               </div>
               <div>
                 <label htmlFor="cal-method" className={labelCls}>Payment Method *</label>

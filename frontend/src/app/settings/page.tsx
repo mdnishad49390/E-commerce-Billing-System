@@ -499,12 +499,15 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">System Settings</h2>
-        <p className="text-slate-500 text-sm">
-          Configure company profile, bank routing, invoice patterns, defaults, and project modules
-        </p>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">System Settings</h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">
+            Configure company profile, bank accounts, invoice templates, global rules, and project modules
+          </p>
+        </div>
       </div>
 
       {successMsg && (
@@ -1115,7 +1118,7 @@ export default function SettingsPage() {
           <div className="space-y-6">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+                <span className="w-2 h-2 rounded-full bg-cyan-600"></span>
                 Project Module Configuration & Options
               </h3>
               <p className="text-xs text-slate-500 mt-1">
@@ -1137,7 +1140,7 @@ export default function SettingsPage() {
                   onClick={() => setProjectSubTab(sub.id as typeof projectSubTab)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     projectSubTab === sub.id
-                      ? "bg-indigo-600 text-white shadow-xs"
+                      ? "bg-cyan-600 text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
@@ -1164,7 +1167,7 @@ export default function SettingsPage() {
                         onClick={() => setOptionType(opt.id as typeof optionType)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           optionType === opt.id
-                            ? "bg-white text-indigo-700 shadow-xs"
+                            ? "bg-white text-cyan-800 shadow-xs font-bold"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
@@ -1176,7 +1179,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => openOptionModal()}
-                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   >
                     <Plus size={14} />
                     Add Option
@@ -1207,7 +1210,7 @@ export default function SettingsPage() {
                                 type="button"
                                 disabled={idx === 0}
                                 onClick={() => handleMoveOption(idx, "up")}
-                                className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                                className="p-1 text-slate-400 hover:text-cyan-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
                                 title="Move Up"
                               >
                                 <ArrowUp size={13} />
@@ -1216,7 +1219,7 @@ export default function SettingsPage() {
                                 type="button"
                                 disabled={idx === arr.length - 1}
                                 onClick={() => handleMoveOption(idx, "down")}
-                                className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                                className="p-1 text-slate-400 hover:text-cyan-600 disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
                                 title="Move Down"
                               >
                                 <ArrowDown size={13} />
@@ -1239,14 +1242,14 @@ export default function SettingsPage() {
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold shadow-2xs"
                               style={{
-                                backgroundColor: `${item.color || "#6366F1"}15`,
-                                color: item.color || "#4F46E5",
-                                border: `1px solid ${item.color || "#6366F1"}30`,
+                                backgroundColor: `${item.color || "#06B6D4"}15`,
+                                color: item.color || "#0891B2",
+                                border: `1px solid ${item.color || "#06B6D4"}30`,
                               }}
                             >
                               <span
                                 className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: item.color || "#6366F1" }}
+                                style={{ backgroundColor: item.color || "#06B6D4" }}
                               />
                               {item.name}
                             </span>
@@ -1256,7 +1259,7 @@ export default function SettingsPage() {
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap items-center gap-1.5">
                               {item.is_default && (
-                                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold border border-indigo-200">
+                                <span className="px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-800 text-[10px] font-bold border border-cyan-200">
                                   Default
                                 </span>
                               )}
@@ -1319,7 +1322,7 @@ export default function SettingsPage() {
                               <button
                                 type="button"
                                 onClick={() => openOptionModal(item)}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors cursor-pointer"
                                 title="Edit Option"
                               >
                                 <Edit2 size={14} />
@@ -1359,7 +1362,7 @@ export default function SettingsPage() {
                           project_code_prefix: e.target.value.toUpperCase(),
                         })
                       }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs font-mono font-bold"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 shadow-2xs font-mono font-bold"
                     />
                   </div>
 
@@ -1378,7 +1381,7 @@ export default function SettingsPage() {
                           project_code_digits: parseInt(e.target.value, 10) || 4,
                         })
                       }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs font-bold"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 shadow-2xs font-bold"
                     />
                   </div>
 
@@ -1399,23 +1402,23 @@ export default function SettingsPage() {
                             project_code_include_year: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500 cursor-pointer"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Live Code Preview */}
-                <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200/70 flex items-center justify-between">
+                <div className="p-4 rounded-2xl bg-cyan-50/60 border border-cyan-200/70 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-indigo-950 block">
+                    <span className="text-xs font-bold text-cyan-950 block">
                       Live Next Project Code Preview:
                     </span>
-                    <span className="text-[11px] text-indigo-700">
+                    <span className="text-[11px] text-cyan-700">
                       Existing codes are immutable snapshots and will not change.
                     </span>
                   </div>
-                  <span className="font-mono text-base font-bold bg-white px-4 py-1.5 rounded-xl border border-indigo-200 text-indigo-900 shadow-xs">
+                  <span className="font-mono text-base font-bold bg-white px-4 py-1.5 rounded-xl border border-cyan-200 text-cyan-900 shadow-xs">
                     {settings.project_code_prefix || "CODE"}
                     {settings.project_code_include_year
                       ? `-${new Date().getFullYear()}-`
@@ -1448,7 +1451,7 @@ export default function SettingsPage() {
                             project_receipt_allowed_extensions: e.target.value,
                           })
                         }
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-mono"
                       />
                     </div>
                     <div>
@@ -1466,7 +1469,7 @@ export default function SettingsPage() {
                             project_receipt_max_size_mb: parseInt(e.target.value, 10) || 5,
                           })
                         }
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold"
+                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-bold"
                       />
                     </div>
                   </div>
@@ -1489,7 +1492,7 @@ export default function SettingsPage() {
                             project_doc_allowed_extensions: e.target.value,
                           })
                         }
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-mono"
                       />
                     </div>
                     <div>
@@ -1507,7 +1510,7 @@ export default function SettingsPage() {
                             project_doc_max_size_mb: parseInt(e.target.value, 10) || 25,
                           })
                         }
-                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold"
+                        className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-bold"
                       />
                     </div>
                   </div>
@@ -1581,7 +1584,7 @@ export default function SettingsPage() {
                                   onChange={(e) =>
                                     handleTogglePermission(perm.id, col, e.target.checked)
                                   }
-                                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="w-4 h-4 text-cyan-600 rounded border-slate-300 focus:ring-cyan-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                               </td>
                             ))}
@@ -1755,7 +1758,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Palette size={18} className="text-indigo-600" />
+                <Palette size={18} className="text-cyan-600" />
                 {editingOption ? "Edit Option" : "Add Option"}
               </h3>
               <button
@@ -1794,7 +1797,7 @@ export default function SettingsPage() {
                   value={optionForm.name}
                   onChange={(e) => setOptionForm({ ...optionForm, name: e.target.value })}
                   placeholder="e.g. Quality Review"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1807,7 +1810,7 @@ export default function SettingsPage() {
                   value={optionForm.name_bn}
                   onChange={(e) => setOptionForm({ ...optionForm, name_bn: e.target.value })}
                   placeholder="e.g. মান পর্যালোচনা"
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                 />
               </div>
 
@@ -1876,7 +1879,7 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setOptionForm({ ...optionForm, is_closed: e.target.checked })
                       }
-                      className="rounded accent-indigo-600 h-4 w-4"
+                      className="rounded accent-cyan-600 h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-slate-700">
                       Closed Status (Blocks new expenses/modules unless privileged)
@@ -1890,7 +1893,7 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setOptionForm({ ...optionForm, is_initial: e.target.checked })
                       }
-                      className="rounded accent-indigo-600 h-4 w-4"
+                      className="rounded accent-cyan-600 h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-slate-700">
                       Initial Status (Assigned to newly created projects)
@@ -1904,7 +1907,7 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         setOptionForm({ ...optionForm, allow_staff_set: e.target.checked })
                       }
-                      className="rounded accent-indigo-600 h-4 w-4"
+                      className="rounded accent-cyan-600 h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-slate-700">
                       Allow STAFF role users to select this status
@@ -1940,7 +1943,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setOptionForm({ ...optionForm, is_default: e.target.checked })
                     }
-                    className="rounded accent-indigo-600 h-4 w-4"
+                    className="rounded accent-cyan-600 h-4 w-4"
                   />
                   <span className="text-xs font-semibold text-slate-700">Default Option</span>
                 </label>
@@ -1952,7 +1955,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setOptionForm({ ...optionForm, is_active: e.target.checked })
                     }
-                    className="rounded accent-indigo-600 h-4 w-4"
+                    className="rounded accent-cyan-600 h-4 w-4"
                   />
                   <span className="text-xs font-semibold text-slate-700">Active</span>
                 </label>
@@ -1969,7 +1972,7 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={optionModalSaving}
-                  className="px-5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {optionModalSaving ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

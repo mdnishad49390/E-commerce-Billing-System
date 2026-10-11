@@ -149,7 +149,7 @@ export default function Dropdown<T extends string | number>({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-block text-left w-full ${isOpen ? "z-50" : "z-auto"} ${className}`}
+      className={`relative inline-block text-left ${className.includes("w-") ? "" : "w-full"} ${isOpen ? "z-50" : "z-auto"} ${className}`}
       id={id}
     >
       {/* Hidden input for HTML form validation */}
