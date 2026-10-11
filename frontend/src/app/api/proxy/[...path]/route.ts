@@ -14,7 +14,7 @@ async function forwardRequest(req: NextRequest, { params }: { params: Promise<{ 
   // Normalize target URL: exactly one trailing slash before query parameters, no double slashes
   const targetUrl = `${baseUrl}/${cleanPath}/${searchParams}`;
 
-  let accessToken = req.cookies.get("access_token")?.value;
+  const accessToken = req.cookies.get("access_token")?.value;
   const refreshToken = req.cookies.get("refresh_token")?.value;
 
   const headers: Record<string, string> = {
@@ -26,7 +26,7 @@ async function forwardRequest(req: NextRequest, { params }: { params: Promise<{ 
     headers["Content-Type"] = contentType;
   }
 
-  let body: any = null;
+  let body: BodyInit | null = null;
   if (!["GET", "HEAD"].includes(req.method)) {
     const rawBody = await req.arrayBuffer();
     body = rawBody.byteLength > 0 ? Buffer.from(rawBody) : null;
@@ -104,7 +104,7 @@ async function forwardRequest(req: NextRequest, { params }: { params: Promise<{ 
   // Handle Response
   const resContentType = res.headers.get("content-type") || "";
   const hasContentDisposition = !!res.headers.get("content-disposition");
-  let responseData: any;
+  let responseData: BodyInit | null = null;
   if (
     hasContentDisposition ||
     resContentType.includes("application/pdf") ||

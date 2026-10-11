@@ -33,7 +33,7 @@ export interface AuditLog {
   model_name: string;
   object_id: string;
   object_repr: string;
-  changes: Record<string, any>;
+  changes: Record<string, unknown>;
   ip_address: string;
   timestamp: string;
 }
@@ -668,41 +668,41 @@ class ApiService {
     return this.request<T>(url, { method: "GET" });
   }
 
-  async post<T>(endpoint: string, data: any): Promise<T> {
+  async post<T>(endpoint: string, data: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async put<T>(endpoint: string, data: any): Promise<T> {
+  async put<T>(endpoint: string, data: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
 
-  async patch<T>(endpoint: string, data: any): Promise<T> {
+  async patch<T>(endpoint: string, data: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async delete(endpoint: string): Promise<any> {
-    return this.request<any>(endpoint, { method: "DELETE" });
+  async delete(endpoint: string): Promise<void> {
+    return this.request<void>(endpoint, { method: "DELETE" });
   }
 
   // User Management (Admin Only)
-  async getUsers(params?: any) {
+  async getUsers(params?: Record<string, string | number | boolean>) {
     return this.get<{ count: number; results: ManagedUser[] }>("/users/", params);
   }
 
-  async createUser(data: any) {
+  async createUser(data: Partial<ManagedUser> & { password?: string }) {
     return this.post<ManagedUser>("/users/", data);
   }
 
-  async updateUser(id: number | string, data: any) {
+  async updateUser(id: number | string, data: Partial<ManagedUser>) {
     return this.patch<ManagedUser>(`/users/${id}/`, data);
   }
 
@@ -715,12 +715,12 @@ class ApiService {
   }
 
   // Audit Logs (Admin Only)
-  async getAuditLogs(params?: any) {
+  async getAuditLogs(params?: Record<string, string | number | boolean>) {
     return this.get<{ count: number; results: AuditLog[] }>("/audit-logs/", params);
   }
 
   // Invoices
-  async getInvoices(params?: any) {
+  async getInvoices(params?: Record<string, string | number | boolean>) {
     return this.get<{ count: number; results: Invoice[] }>("/invoices/", params);
   }
 
@@ -728,11 +728,11 @@ class ApiService {
     return this.get<Invoice>(`/invoices/${id}/`);
   }
 
-  async createInvoice(data: any) {
+  async createInvoice(data: Partial<Invoice> | Record<string, unknown>) {
     return this.post<Invoice>("/invoices/", data);
   }
 
-  async updateInvoice(id: number | string, data: any) {
+  async updateInvoice(id: number | string, data: Partial<Invoice> | Record<string, unknown>) {
     return this.put<Invoice>(`/invoices/${id}/`, data);
   }
 
@@ -741,9 +741,10 @@ class ApiService {
   }
 
   async getDashboardSummary(): Promise<{
-    total_billed: number;
-    total_collected: number;
-    total_due: number;
+    total_billed: string;
+    total_collected: string;
+    total_due: string;
+    total_overdue: string;
     total_invoices: number;
     active_clients: number;
   }> {
@@ -783,7 +784,7 @@ class ApiService {
   }
 
   // Payments & Money Receipts
-  async getPayments(params?: any) {
+  async getPayments(params?: Record<string, string | number | boolean>) {
     return this.get<{ count: number; results: Payment[] }>("/payments/", params);
   }
 

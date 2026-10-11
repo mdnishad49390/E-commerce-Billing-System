@@ -490,7 +490,19 @@ class RecurringBillingService:
             error_message=first_error,
         )
 
-        cls.send_run_notification(run_rec)
+        try:
+            cls.send_run_notification(run_rec)
+        except Exception as mail_exc:
+            logger.warning("Unexpected error during email notification dispatch: %s", mail_exc)
+            try:
+                details = dict(run_rec.details or {})
+                details["mail_error"] = str(mail_exc)
+                run_rec.details = details
+                if not run_rec.error_message:
+                    run_rec.error_message = f"Email notification delivery failed: {mail_exc}"
+                run_rec.save(update_fields=["details", "error_message"])
+            except Exception:
+                pass
 
         return {
             "run_id": run_rec.id,
@@ -612,10 +624,12 @@ class RecurringBillingService:
             body += f"\nError Message:\n{recurring_run.error_message}\n"
 
         if recurring_run.details.get("created"):
+            settings_obj = Settings.objects.first()
+            curr = settings_obj.currency_symbol if settings_obj else "Tk"
             body += "\nCreated Invoices:\n"
             for inv in recurring_run.details["created"][:10]:
                 if isinstance(inv, dict):
-                    body += f" - {inv.get('invoice_number')} | {inv.get('client_name')} ({inv.get('period')}): {inv.get('amount')} Tk\n"
+                    body += f" - {inv.get('invoice_number')} | {inv.get('client_name')} ({inv.get('period')}): {inv.get('amount')} {curr}\n"
                 else:
                     body += f" - {inv}\n"
             if len(recurring_run.details["created"]) > 10:
@@ -632,10 +646,19 @@ class RecurringBillingService:
                 message=body,
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "billing@raktch.com"),
                 recipient_list=admin_emails,
-                fail_silently=True,
+                fail_silently=False,
             )
         except Exception as e:
             logger.warning("Failed to send recurring run email notification: %s", e)
+            try:
+                details = dict(recurring_run.details or {})
+                details["mail_error"] = str(e)
+                recurring_run.details = details
+                if not recurring_run.error_message:
+                    recurring_run.error_message = f"Email notification delivery failed: {e}"
+                recurring_run.save(update_fields=["details", "error_message"])
+            except Exception as update_err:
+                logger.error("Failed to record mail error on RecurringRun: %s", update_err)
 
     @classmethod
     def get_dashboard_status(cls):

@@ -29,16 +29,21 @@ export default function ClientsPage() {
   const [customPrice, setCustomPrice] = useState("");
   const [customName, setCustomName] = useState("");
   const [customSpec, setCustomSpec] = useState("");
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [cRes, sRes] = await Promise.all([
+      const [cRes, sRes, setRes] = await Promise.all([
         api.getClients(),
         api.getServices(),
+        api.getSettings().catch(() => null),
       ]);
       setClients(cRes.results || []);
       setServices(sRes.results || []);
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
+      }
     } catch (err) {
       console.error("Failed to load clients:", err);
     } finally {
@@ -47,7 +52,30 @@ export default function ClientsPage() {
   };
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    Promise.all([
+      api.getClients(),
+      api.getServices(),
+      api.getSettings().catch(() => null),
+    ])
+      .then(([cRes, sRes, setRes]) => {
+        if (!active) return;
+        setClients(cRes.results || []);
+        setServices(sRes.results || []);
+        if (setRes?.currency_symbol) {
+          setCurrencySymbol(setRes.currency_symbol);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load clients:", err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleOpenAdd = () => {
@@ -93,8 +121,9 @@ export default function ClientsPage() {
 
       setModalOpen(false);
       await loadData();
-    } catch (err: any) {
-      setModalError(err.message || "Failed to save client.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save client.";
+      setModalError(message);
     } finally {
       setModalLoading(false);
     }
@@ -105,8 +134,9 @@ export default function ClientsPage() {
     try {
       await api.deleteClient(id);
       await loadData();
-    } catch (err: any) {
-      alert(err.message || "Failed to delete client");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete client";
+      alert(message);
     }
   };
 
@@ -134,8 +164,9 @@ export default function ClientsPage() {
       });
       setPricingModalClient(null);
       await loadData();
-    } catch (err: any) {
-      alert(err.message || "Failed to save client subscription pricing.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save client subscription pricing.";
+      alert(message);
     }
   };
 
@@ -167,7 +198,7 @@ export default function ClientsPage() {
         </div>
       ) : clients.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-3xl p-16 text-center text-slate-400 shadow-sm">
-          No clients added yet. Click "Add New Client" to create your first client.
+          No clients added yet. Click &quot;Add New Client&quot; to create your first client.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -406,8 +437,8 @@ export default function ClientsPage() {
                   options={services.map((s) => ({
                     value: s.id,
                     label: s.name,
-                    secondary: `Default: ${s.default_price} Tk`,
-                    badge: `${s.default_price} Tk`,
+                    secondary: `Default: ${s.default_price} ${currencySymbol}`,
+                    badge: `${s.default_price} ${currencySymbol}`,
                   }))}
                   placeholder="Select a service..."
                   size="md"
@@ -416,7 +447,7 @@ export default function ClientsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Custom Monthly Price (Tk) *
+                  Custom Monthly Price ({currencySymbol}) *
                 </label>
                 <input
                   type="number"

@@ -41,10 +41,12 @@ export default function InvoicesListPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [summary, setSummary] = useState<{
-    total_billed: number;
-    total_collected: number;
-    total_due: number;
+    total_billed: string;
+    total_collected: string;
+    total_due: string;
+    total_overdue?: string;
   } | null>(null);
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   const loadInvoices = async () => {
     try {
@@ -55,13 +57,17 @@ export default function InvoicesListPage() {
       if (hasDueFilter) params.has_due = true;
       if (billingMonthFilter) params.billing_month = billingMonthFilter;
 
-      const [res, summaryRes] = await Promise.all([
+      const [res, summaryRes, setRes] = await Promise.all([
         api.getInvoices(params),
         api.getDashboardSummary().catch(() => null),
+        api.getSettings().catch(() => null),
       ]);
       setInvoices(res.results || []);
       if (summaryRes) {
         setSummary(summaryRes);
+      }
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
       }
     } catch (err) {
       console.error("Failed to load invoices:", err);
@@ -166,10 +172,10 @@ export default function InvoicesListPage() {
         <MetricCard
           title="Total Billed"
           value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-            ? summary.total_billed
+            ? parseFloat(summary.total_billed || "0")
             : invoices.reduce((acc, inv) => acc + parseFloat(inv.payable_amount || "0"), 0)
-          ).toLocaleString()}
-          unit="Tk"
+          ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Cumulative payable volume"
           icon={DollarSign}
           color="cyan"
@@ -178,10 +184,10 @@ export default function InvoicesListPage() {
         <MetricCard
           title="Collected"
           value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-            ? summary.total_collected
+            ? parseFloat(summary.total_collected || "0")
             : invoices.reduce((acc, inv) => acc + parseFloat(inv.paid_amount || "0"), 0)
-          ).toLocaleString()}
-          unit="Tk"
+          ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Verified payments received"
           icon={CheckCircle2}
           color="emerald"
@@ -190,10 +196,10 @@ export default function InvoicesListPage() {
         <MetricCard
           title="Net Due"
           value={(!search && !statusFilter && !hasDueFilter && !billingMonthFilter && summary
-            ? summary.total_due
+            ? parseFloat(summary.total_due || "0")
             : invoices.reduce((acc, inv) => acc + parseFloat(inv.due_amount || "0"), 0)
-          ).toLocaleString()}
-          unit="Tk"
+          ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Outstanding receivables"
           icon={AlertCircle}
           color="amber"

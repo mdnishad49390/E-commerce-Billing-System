@@ -71,17 +71,23 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
   const [discount, setDiscount] = useState("0.00");
   const [vatRate, setVatRate] = useState("0.00");
   const [advanceAmount, setAdvanceAmount] = useState("0.00");
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [cRes, compRes, bRes, sRes, tRes] = await Promise.all([
+        const [cRes, compRes, bRes, sRes, tRes, setRes] = await Promise.all([
           api.getClients(),
           api.getCompanies(),
           api.getBankAccounts(),
           api.getServices(),
           api.getTemplates(),
+          api.getSettings().catch(() => null),
         ]);
+
+        if (setRes?.currency_symbol) {
+          setCurrencySymbol(setRes.currency_symbol);
+        }
 
         setClients(cRes.results || []);
         setCompanies(compRes.results || []);
@@ -124,6 +130,9 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
           setAuthLabel(initialData.authorization_label);
           setRecvLabel(initialData.received_by_label);
           setNotes(initialData.notes || "");
+          if (initialData.currency_symbol) {
+            setCurrencySymbol(initialData.currency_symbol);
+          }
           if (initialData.items && initialData.items.length > 0) {
             setItems(initialData.items);
           }
@@ -263,6 +272,7 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
         authorization_label: authLabel || "Authorization",
         received_by_label: recvLabel || "Received by",
         notes: notes || "",
+        currency_symbol: currencySymbol,
         items: preparedItems,
       };
 
@@ -498,8 +508,8 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
                     ...services.map((s) => ({
                       value: s.id,
                       label: s.name,
-                      secondary: `${s.default_price} Tk`,
-                      badge: `${s.default_price} Tk`,
+                      secondary: `${s.default_price} ${currencySymbol}`,
+                      badge: `${s.default_price} ${currencySymbol}`,
                     })),
                   ]}
                   placeholder="(Custom Item)"
@@ -539,7 +549,7 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
               {/* Unit Price */}
               <div className="md:col-span-1">
                 <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
-                  Price (Tk)
+                  Price ({currencySymbol})
                 </label>
                 <input
                   type="number"
@@ -640,11 +650,11 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
           <div className="space-y-3 pt-2">
             <div className="flex justify-between items-center text-sm text-slate-600">
               <span className="font-semibold">Sub Total:</span>
-              <span className="font-bold text-slate-900">{calculatedSubtotal.toLocaleString()} Tk</span>
+              <span className="font-bold text-slate-900">{calculatedSubtotal.toLocaleString()} {currencySymbol}</span>
             </div>
 
             <div className="flex justify-between items-center text-sm">
-              <span className="font-semibold text-slate-600">Discount (Tk):</span>
+              <span className="font-semibold text-slate-600">Discount ({currencySymbol}):</span>
               <input
                 type="number"
                 step="0.01"
@@ -665,17 +675,17 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
                   placeholder="0.00"
                   className="w-20 px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-900 text-right text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-semibold shadow-2xs"
                 />
-                <span className="text-xs text-slate-500">({calculatedVat.toFixed(2)} Tk)</span>
+                <span className="text-xs text-slate-500">({calculatedVat.toFixed(2)} {currencySymbol})</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-cyan-50/80 border border-cyan-100/90 flex justify-between items-center text-base font-bold text-cyan-900">
               <span>Payable Amount:</span>
-              <span>{calculatedPayable.toLocaleString()} Tk</span>
+              <span>{calculatedPayable.toLocaleString()} {currencySymbol}</span>
             </div>
 
             <div className="flex justify-between items-center text-sm">
-              <span className="font-semibold text-slate-600">Advance Paid (Tk):</span>
+              <span className="font-semibold text-slate-600">Advance Paid ({currencySymbol}):</span>
               <input
                 type="number"
                 step="0.01"
@@ -687,7 +697,7 @@ export default function InvoiceForm({ initialData, isEdit }: InvoiceFormProps) {
 
             <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 flex justify-between items-center text-lg font-black text-amber-700 shadow-2xs">
               <span>Net Due:</span>
-              <span>{calculatedDue.toLocaleString()} Tk</span>
+              <span>{calculatedDue.toLocaleString()} {currencySymbol}</span>
             </div>
           </div>
         </div>
