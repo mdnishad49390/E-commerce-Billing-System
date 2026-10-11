@@ -38,6 +38,7 @@ export default function PaymentsPage() {
   const [dueInvoices, setDueInvoices] = useState<Invoice[]>([]);
   const [paidInvoices, setPaidInvoices] = useState<Invoice[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -77,15 +78,19 @@ export default function PaymentsPage() {
       if (dateAfterFilter) params.payment_date_after = dateAfterFilter;
       if (dateBeforeFilter) params.payment_date_before = dateBeforeFilter;
 
-      const [paymentsRes, dueRes, paidRes] = await Promise.all([
+      const [paymentsRes, dueRes, paidRes, setRes] = await Promise.all([
         api.getPayments(params),
         api.getInvoices({ has_due: true, page_size: 100 }),
         api.getInvoices({ status: "PAID", page_size: 100 }),
+        api.getSettings().catch(() => null),
       ]);
 
       setPayments(paymentsRes.results || []);
       setDueInvoices(dueRes.results || []);
       setPaidInvoices(paidRes.results || []);
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
+      }
     } catch (err) {
       console.error("Failed to load payment data:", err);
     } finally {
@@ -283,7 +288,7 @@ export default function PaymentsPage() {
         <MetricCard
           title="Total Collected"
           value={totalCollected.toLocaleString()}
-          unit="Tk"
+          unit={currencySymbol}
           subtitle={`${payments.length} verified transactions recorded`}
           icon={CheckCircle2}
           color="emerald"
@@ -292,7 +297,7 @@ export default function PaymentsPage() {
         <MetricCard
           title="Total Outstanding Due"
           value={totalDue.toLocaleString()}
-          unit="Tk"
+          unit={currencySymbol}
           subtitle={`Across ${dueInvoices.length} outstanding invoices`}
           icon={AlertCircle}
           color="amber"
@@ -480,7 +485,7 @@ export default function PaymentsPage() {
                         {p.transaction_id || <span className="text-slate-400 italic">None</span>}
                       </td>
                       <td className="py-4 px-5 text-right font-mono font-bold text-emerald-700 text-sm">
-                        {Number(p.amount).toFixed(2)} {p.currency_symbol || "Tk"}
+                        {Number(p.amount).toFixed(2)} {p.currency_symbol || currencySymbol}
                       </td>
                       <td className="py-4 px-5 text-center">
                         <div className="flex items-center justify-center gap-1.5">

@@ -81,6 +81,7 @@ export default function RecurringRunsPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   // Modals
   const [selectedRun, setSelectedRun] = useState<RecurringRun | null>(null);
@@ -114,13 +115,17 @@ export default function RecurringRunsPage() {
     let ignore = false;
     const loadData = async () => {
       try {
-        const [runsRes, statRes] = await Promise.all([
+        const [runsRes, statRes, setRes] = await Promise.all([
           api.getRecurringRuns(),
           api.getRecurringStatus(),
+          api.getSettings().catch(() => null),
         ]);
         if (!ignore) {
           setRuns(runsRes.results || []);
           setStatusInfo(statRes);
+          if (setRes?.currency_symbol) {
+            setCurrencySymbol(setRes.currency_symbol);
+          }
         }
       } catch (err: unknown) {
         if (!ignore) {
@@ -143,12 +148,16 @@ export default function RecurringRunsPage() {
     try {
       setLoading(true);
       setErrorMsg("");
-      const [runsRes, statRes] = await Promise.all([
+      const [runsRes, statRes, setRes] = await Promise.all([
         api.getRecurringRuns(),
         api.getRecurringStatus(),
+        api.getSettings().catch(() => null),
       ]);
       setRuns(runsRes.results || []);
       setStatusInfo(statRes);
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
+      }
     } catch (err: unknown) {
       setErrorMsg(getErrorMessage(err, "Failed to load recurring run data."));
     } finally {
@@ -684,7 +693,7 @@ export default function RecurringRunsPage() {
                       const item = inv as CreatedInvoiceItem | string;
                       const num = typeof item === "string" ? item : item.invoice_number || `Invoice #${idx + 1}`;
                       const client = typeof item === "string" ? "" : item.client_name || "";
-                      const amount = typeof item === "string" ? "" : item.amount !== undefined ? `${item.amount} Tk` : "";
+                      const amount = typeof item === "string" ? "" : item.amount !== undefined ? `${item.amount} ${currencySymbol}` : "";
                       return (
                         <div key={idx} className="p-3 flex items-center justify-between">
                           <div>
@@ -907,7 +916,7 @@ export default function RecurringRunsPage() {
                           </div>
                           <div className="text-right">
                             <span className="font-bold text-emerald-700 block text-sm">
-                              {item.amount.toLocaleString()} Tk
+                              {item.amount.toLocaleString()} {currencySymbol}
                             </span>
                             <span className="text-[10px] uppercase font-bold text-slate-400">
                               Status: {item.status}

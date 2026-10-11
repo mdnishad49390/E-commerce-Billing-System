@@ -12,6 +12,7 @@ from billing.models import (
     Invoice,
     InvoiceItem,
 )
+import os
 import datetime
 
 User = get_user_model()
@@ -22,9 +23,18 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # 1. Superuser
-        if not User.objects.filter(username="admin").exists():
-            User.objects.create_superuser("admin", "admin@example.com", "admin123")
-            self.stdout.write(self.style.SUCCESS("Superuser 'admin' created with password 'admin123'."))
+        if not User.objects.filter(is_superuser=True).exists():
+            admin_pwd = os.getenv("ADMIN_PASSWORD")
+            if admin_pwd:
+                User.objects.create_superuser("admin", "admin@raktch.com", admin_pwd)
+                self.stdout.write(self.style.SUCCESS("Superuser 'admin' created."))
+            else:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "No superuser exists. To create one, run 'python manage.py create_admin' "
+                        "or set ADMIN_PASSWORD in your environment."
+                    )
+                )
 
         # 2. Company
         company, _ = Company.objects.get_or_create(
@@ -42,7 +52,7 @@ class Command(BaseCommand):
         # 3. Bank Account
         bank, _ = BankAccount.objects.get_or_create(
             company=company,
-            account_number="20502180100311104",
+            account_number="1234567890123",
             defaults={
                 "bank_name": "Islami Bank PLC",
                 "account_name": "RAKTCH TECHNOLOGY AND SOFTWARE",

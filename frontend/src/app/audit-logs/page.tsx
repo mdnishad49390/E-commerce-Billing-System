@@ -7,8 +7,6 @@ import { Dropdown, SearchBar } from "@/components/common";
 import {
   History,
   Shield,
-  Search,
-  Filter,
   RefreshCw,
   Eye,
   Calendar,
@@ -26,16 +24,10 @@ export default function AuditLogsPage() {
   const [modelFilter, setModelFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadLogs();
-    }
-  }, [isAdmin, actionFilter, modelFilter]);
-
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const params: any = { page_size: 100 };
+      const params: Record<string, string | number | boolean> = { page_size: 100 };
       if (actionFilter) params.action = actionFilter;
       if (modelFilter) params.model_name = modelFilter;
       const data = await api.getAuditLogs(params);
@@ -46,6 +38,30 @@ export default function AuditLogsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    api
+      .getAuditLogs({
+        page_size: 100,
+        ...(actionFilter ? { action: actionFilter } : {}),
+        ...(modelFilter ? { model_name: modelFilter } : {}),
+      })
+      .then((data) => {
+        if (active) setLogs(data.results || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load audit logs:", err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, actionFilter, modelFilter]);
 
   if (!isAdmin) {
     return (

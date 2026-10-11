@@ -21,12 +21,19 @@ export default function ServicesPage() {
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "QUARTERLY" | "YEARLY" | "ONE_TIME">("MONTHLY");
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   const loadServices = async () => {
     try {
       setLoading(true);
-      const res = await api.getServices();
+      const [res, setRes] = await Promise.all([
+        api.getServices(),
+        api.getSettings().catch(() => null),
+      ]);
       setServices(res.results || []);
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
+      }
     } catch (err) {
       console.error("Failed to load services:", err);
     } finally {
@@ -178,7 +185,7 @@ export default function ServicesPage() {
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-slate-500">Default Rate:</span>
                 <span className="text-xl font-black text-cyan-800">
-                  {parseFloat(s.default_price).toLocaleString()} <span className="text-xs text-cyan-700 font-bold">Tk</span>
+                  {parseFloat(s.default_price).toLocaleString()} <span className="text-xs text-cyan-700 font-bold">{currencySymbol}</span>
                 </span>
               </div>
             </div>
@@ -226,7 +233,7 @@ export default function ServicesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Default Price (Tk) *
+                    Default Price ({currencySymbol}) *
                   </label>
                   <input
                     type="number"
