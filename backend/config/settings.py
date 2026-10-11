@@ -184,13 +184,23 @@ CORS_ALLOW_CREDENTIALS = True
 # Email Configuration
 EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
-    'django.core.mail.backends.console.email.Backend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
 )
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
+EMAIL_USE_TLS = (
+    os.getenv('EMAIL_USE_TLS', 'False' if EMAIL_USE_SSL else 'True').lower() in ('true', '1', 'yes')
+    and not EMAIL_USE_SSL
+)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'billing@raktch.com')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', 15))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER or 'billing@raktch.com'
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@raktch.com')
+
+# WhatsApp Cloud API & Gateway Configuration
+WHATSAPP_API_TOKEN = os.getenv('WHATSAPP_API_TOKEN', '')
+WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '')
+WHATSAPP_API_URL = os.getenv('WHATSAPP_API_URL', '')
 

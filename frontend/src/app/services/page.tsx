@@ -21,12 +21,19 @@ export default function ServicesPage() {
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "QUARTERLY" | "YEARLY" | "ONE_TIME">("MONTHLY");
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
 
   const loadServices = async () => {
     try {
       setLoading(true);
-      const res = await api.getServices();
+      const [res, setRes] = await Promise.all([
+        api.getServices(),
+        api.getSettings().catch(() => null),
+      ]);
       setServices(res.results || []);
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
+      }
     } catch (err) {
       console.error("Failed to load services:", err);
     } finally {
@@ -101,19 +108,19 @@ export default function ServicesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Services & Subscriptions</h2>
-          <p className="text-slate-500 text-sm">Define software products, hosting packages, and default rates</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Services & Subscriptions</h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">Define software products, recurring hosting packages, and default billing rates</p>
         </div>
 
         {isAccountant && (
           <button
             onClick={handleOpenAdd}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 hover:shadow-cyan-600/30 cursor-pointer shrink-0 w-fit"
           >
-            <Plus size={18} />
+            <Plus size={17} />
             Add New Service
           </button>
         )}
@@ -178,7 +185,7 @@ export default function ServicesPage() {
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-slate-500">Default Rate:</span>
                 <span className="text-xl font-black text-cyan-800">
-                  {parseFloat(s.default_price).toLocaleString()} <span className="text-xs text-cyan-700 font-bold">Tk</span>
+                  {parseFloat(s.default_price).toLocaleString()} <span className="text-xs text-cyan-700 font-bold">{currencySymbol}</span>
                 </span>
               </div>
             </div>
@@ -226,7 +233,7 @@ export default function ServicesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Default Price (Tk) *
+                    Default Price ({currencySymbol}) *
                   </label>
                   <input
                     type="number"

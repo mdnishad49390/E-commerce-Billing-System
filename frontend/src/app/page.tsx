@@ -23,12 +23,14 @@ export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [summary, setSummary] = useState({
-    total_billed: 0,
-    total_collected: 0,
-    total_due: 0,
+    total_billed: "0.00",
+    total_collected: "0.00",
+    total_due: "0.00",
+    total_overdue: "0.00",
     total_invoices: 0,
     active_clients: 0,
   });
+  const [currencySymbol, setCurrencySymbol] = useState("Tk");
   const [loading, setLoading] = useState(true);
   const [batchMonth, setBatchMonth] = useState("");
   const [batchModalOpen, setBatchModalOpen] = useState(false);
@@ -39,11 +41,12 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invRes, clientRes, summaryRes, recStatusRes] = await Promise.all([
+      const [invRes, clientRes, summaryRes, recStatusRes, setRes] = await Promise.all([
         api.getInvoices({ page_size: 10 }),
         api.getClients(),
         api.getDashboardSummary().catch(() => null),
         api.getRecurringStatus().catch(() => null),
+        api.getSettings().catch(() => null),
       ]);
       setInvoices(invRes.results || []);
       setClients(clientRes.results || []);
@@ -52,6 +55,9 @@ export default function DashboardPage() {
       }
       if (recStatusRes) {
         setRecurringStatus(recStatusRes);
+      }
+      if (setRes?.currency_symbol) {
+        setCurrencySymbol(setRes.currency_symbol);
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -70,9 +76,10 @@ export default function DashboardPage() {
     setBatchMonth(`${monthNames[d.getMonth()]}-${d.getFullYear()}`);
   }, []);
 
-  const totalInvoiced = summary.total_billed;
-  const totalPaid = summary.total_collected;
-  const totalDue = summary.total_due;
+  const totalInvoiced = Number(summary.total_billed || 0);
+  const totalPaid = Number(summary.total_collected || 0);
+  const totalDue = Number(summary.total_due || 0);
+  const totalOverdue = Number(summary.total_overdue || 0);
   const activeClientsCount = summary.active_clients || clients.length;
 
   const handleGenerateBatch = async () => {
@@ -149,11 +156,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard
           title="Total Billed"
-          value={totalInvoiced.toLocaleString()}
-          unit="Tk"
+          value={totalInvoiced.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Sum of recent invoices"
           icon={Receipt}
           color="blue"
@@ -161,8 +168,8 @@ export default function DashboardPage() {
 
         <MetricCard
           title="Collected"
-          value={totalPaid.toLocaleString()}
-          unit="Tk"
+          value={totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Payments received to date"
           icon={CheckCircle2}
           color="emerald"
@@ -170,11 +177,20 @@ export default function DashboardPage() {
 
         <MetricCard
           title="Total Due"
-          value={totalDue.toLocaleString()}
-          unit="Tk"
+          value={totalDue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
           subtitle="Pending collection"
           icon={AlertCircle}
           color="amber"
+        />
+
+        <MetricCard
+          title="Total Overdue"
+          value={totalOverdue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          unit={currencySymbol}
+          subtitle="Overdue receivables"
+          icon={AlertTriangle}
+          color="rose"
         />
 
         <MetricCard

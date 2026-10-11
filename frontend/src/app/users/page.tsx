@@ -232,22 +232,22 @@ export default function UsersPage() {
       case "ACCOUNTANT":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
       default:
-        return "bg-indigo-50 text-indigo-700 border-indigo-200";
+        return "bg-cyan-50 text-cyan-800 border-cyan-200";
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-cyan-100 text-cyan-700 rounded-xl">
-              <UserCheck size={22} />
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-cyan-50 text-cyan-700 border border-cyan-200/60 rounded-2xl shadow-2xs">
+              <UserCheck size={24} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">User Management</h1>
-              <p className="text-xs text-slate-500">Manage user accounts, roles, access levels and security</p>
+              <h1 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">User Management</h1>
+              <p className="text-xs md:text-sm text-slate-500 mt-0.5">Manage user accounts, roles, access levels and security</p>
             </div>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function UsersPage() {
         <button
           type="button"
           onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold shadow-sm shadow-cyan-600/20 transition-all cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold shadow-sm shadow-cyan-600/20 transition-all cursor-pointer"
         >
           <Plus size={16} />
           <span>Add New User</span>
@@ -528,7 +528,7 @@ export default function UsersPage() {
                   value={formData.role}
                   onChange={(val) => setFormData({ ...formData, role: val as any })}
                   options={[
-                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
+                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-cyan-50 text-cyan-800 border border-cyan-200" },
                     { value: "ACCOUNTANT", label: "Accountant", secondary: "Invoices, Payments, Due Settlement, Reports", badge: "Accountant", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
                     { value: "ADMIN", label: "Admin", secondary: "Full System Access, Users & Settings", badge: "Admin", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
                   ]}
@@ -627,7 +627,7 @@ export default function UsersPage() {
                   value={formData.role}
                   onChange={(val) => setFormData({ ...formData, role: val as any })}
                   options={[
-                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
+                    { value: "STAFF", label: "Staff", secondary: "Draft invoices, Client view", badge: "Staff", badgeColor: "bg-cyan-50 text-cyan-800 border border-cyan-200" },
                     { value: "ACCOUNTANT", label: "Accountant", secondary: "Invoices, Payments, Due Settlement, Reports", badge: "Accountant", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
                     { value: "ADMIN", label: "Admin", secondary: "Full System Access, Users & Settings", badge: "Admin", badgeColor: "bg-rose-50 text-rose-700 border border-rose-200" },
                   ]}

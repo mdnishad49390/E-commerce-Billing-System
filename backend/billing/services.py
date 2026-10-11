@@ -25,6 +25,7 @@ from .models import (
     Settings,
     Subscription,
 )
+from .notification_service import InvoiceNotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -438,13 +439,38 @@ class RecurringBillingService:
                 )
 
                 if code == "CREATED":
+                    # Automated notification dispatch to client's Gmail and WhatsApp
+                    notif_data = {
+                        "email": {"status": "PENDING", "error": ""},
+                        "whatsapp": {"status": "PENDING", "error": "", "link": ""},
+                    }
+                    try:
+                        notif_data = InvoiceNotificationService.dispatch_invoice_notifications(inv_or_obj)
+                    except Exception as notif_err:
+                        logger.warning("Automated notification dispatch failed for invoice %s: %s", inv_or_obj.id, notif_err)
+                        if "email" in notif_data:
+                            notif_data["email"]["error"] = str(notif_err)
+                        if "whatsapp" in notif_data:
+                            notif_data["whatsapp"]["error"] = str(notif_err)
+
                     created_invoices.append({
+                        "invoice_id": inv_or_obj.id,
                         "invoice_number": inv_or_obj.invoice_number,
+                        "client_id": sub.client.id,
                         "client_name": sub.client.name,
+                        "client_email": sub.client.email or inv_or_obj.client_email,
+                        "client_phone": sub.client.phone or inv_or_obj.client_phone,
                         "service_name": sub.effective_name,
                         "period": p_key,
+                        "billing_month": inv_or_obj.billing_month or p_key,
                         "amount": float(inv_or_obj.payable_amount),
                         "status": inv_or_obj.status,
+                        "email_status": notif_data.get("email", {}).get("status", inv_or_obj.email_status),
+                        "email_error": notif_data.get("email", {}).get("error", inv_or_obj.email_error),
+                        "whatsapp_status": notif_data.get("whatsapp", {}).get("status", inv_or_obj.whatsapp_status),
+                        "whatsapp_error": notif_data.get("whatsapp", {}).get("error", inv_or_obj.whatsapp_error),
+                        "whatsapp_link": notif_data.get("whatsapp", {}).get("link", ""),
+                        "dispatched_at": timezone.now().isoformat(),
                     })
                 elif code == "SKIPPED":
                     skipped_items.append({
@@ -490,7 +516,19 @@ class RecurringBillingService:
             error_message=first_error,
         )
 
-        cls.send_run_notification(run_rec)
+        try:
+            cls.send_run_notification(run_rec)
+        except Exception as mail_exc:
+            logger.warning("Unexpected error during email notification dispatch: %s", mail_exc)
+            try:
+                details = dict(run_rec.details or {})
+                details["mail_error"] = str(mail_exc)
+                run_rec.details = details
+                if not run_rec.error_message:
+                    run_rec.error_message = f"Email notification delivery failed: {mail_exc}"
+                run_rec.save(update_fields=["details", "error_message"])
+            except Exception:
+                pass
 
         return {
             "run_id": run_rec.id,
@@ -612,10 +650,12 @@ class RecurringBillingService:
             body += f"\nError Message:\n{recurring_run.error_message}\n"
 
         if recurring_run.details.get("created"):
+            settings_obj = Settings.objects.first()
+            curr = settings_obj.currency_symbol if settings_obj else "Tk"
             body += "\nCreated Invoices:\n"
             for inv in recurring_run.details["created"][:10]:
                 if isinstance(inv, dict):
-                    body += f" - {inv.get('invoice_number')} | {inv.get('client_name')} ({inv.get('period')}): {inv.get('amount')} Tk\n"
+                    body += f" - {inv.get('invoice_number')} | {inv.get('client_name')} ({inv.get('period')}): {inv.get('amount')} {curr}\n"
                 else:
                     body += f" - {inv}\n"
             if len(recurring_run.details["created"]) > 10:
@@ -632,10 +672,19 @@ class RecurringBillingService:
                 message=body,
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "billing@raktch.com"),
                 recipient_list=admin_emails,
-                fail_silently=True,
+                fail_silently=False,
             )
         except Exception as e:
             logger.warning("Failed to send recurring run email notification: %s", e)
+            try:
+                details = dict(recurring_run.details or {})
+                details["mail_error"] = str(e)
+                recurring_run.details = details
+                if not recurring_run.error_message:
+                    recurring_run.error_message = f"Email notification delivery failed: {e}"
+                recurring_run.save(update_fields=["details", "error_message"])
+            except Exception as update_err:
+                logger.error("Failed to record mail error on RecurringRun: %s", update_err)
 
     @classmethod
     def get_dashboard_status(cls):

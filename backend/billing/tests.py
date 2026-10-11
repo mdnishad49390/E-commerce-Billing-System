@@ -1,6 +1,9 @@
+from unittest.mock import patch, MagicMock
 from decimal import Decimal
 import datetime
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -36,7 +39,7 @@ class InvoiceCalculationAndNumberTest(TestCase):
             company=self.company,
             bank_name="Islami Bank PLC",
             account_name="RAKTCH TECHNOLOGY AND SOFTWARE",
-            account_number="20502180100311104",
+            account_number="1234567890123",
         )
         self.client = Client.objects.create(
             name="Rose International",
@@ -361,9 +364,10 @@ class Phase6PaymentAndDueTrackingTest(APITestCase):
         # 1. Initial summary check
         s1 = self.client.get("/api/invoices/summary/")
         self.assertEqual(s1.status_code, status.HTTP_200_OK)
-        self.assertEqual(s1.data["total_billed"], 1000.0)
-        self.assertEqual(s1.data["total_collected"], 0.0)
-        self.assertEqual(s1.data["total_due"], 1000.0)
+        self.assertEqual(s1.data["total_billed"], "1000.00")
+        self.assertEqual(s1.data["total_collected"], "0.00")
+        self.assertEqual(s1.data["total_due"], "1000.00")
+        self.assertEqual(s1.data["total_overdue"], "0.00")
 
         # 2. Record payment
         p_resp = self.client.post(f"/api/invoices/{self.invoice.id}/record_payment/", {
@@ -374,16 +378,16 @@ class Phase6PaymentAndDueTrackingTest(APITestCase):
         p_id = p_resp.data["payment"]["id"]
 
         s2 = self.client.get("/api/invoices/summary/")
-        self.assertEqual(s2.data["total_collected"], 600.0)
-        self.assertEqual(s2.data["total_due"], 400.0)
+        self.assertEqual(s2.data["total_collected"], "600.00")
+        self.assertEqual(s2.data["total_due"], "400.00")
 
         # 3. Delete payment -> must immediately deduct from total_collected
         del_p = self.client.delete(f"/api/payments/{p_id}/")
         self.assertEqual(del_p.status_code, status.HTTP_204_NO_CONTENT)
 
         s3 = self.client.get("/api/invoices/summary/")
-        self.assertEqual(s3.data["total_collected"], 0.0)
-        self.assertEqual(s3.data["total_due"], 1000.0)
+        self.assertEqual(s3.data["total_collected"], "0.00")
+        self.assertEqual(s3.data["total_due"], "1000.00")
 
         # 4. Make bill fully paid (received bill), then delete the invoice
         self.client.post(f"/api/invoices/{self.invoice.id}/record_payment/", {
@@ -392,8 +396,8 @@ class Phase6PaymentAndDueTrackingTest(APITestCase):
             "payment_date": "2026-10-05",
         })
         s4 = self.client.get("/api/invoices/summary/")
-        self.assertEqual(s4.data["total_collected"], 1000.0)
-        self.assertEqual(s4.data["total_due"], 0.0)
+        self.assertEqual(s4.data["total_collected"], "1000.00")
+        self.assertEqual(s4.data["total_due"], "0.00")
 
         del_inv = self.client.delete(f"/api/invoices/{self.invoice.id}/")
         self.assertEqual(del_inv.status_code, status.HTTP_400_BAD_REQUEST)
@@ -403,9 +407,10 @@ class Phase6PaymentAndDueTrackingTest(APITestCase):
         self.assertEqual(cancel_res.status_code, status.HTTP_200_OK)
 
         s5 = self.client.get("/api/invoices/summary/")
-        self.assertEqual(s5.data["total_billed"], 0.0)
-        self.assertEqual(s5.data["total_collected"], 0.0)
-        self.assertEqual(s5.data["total_due"], 0.0)
+        self.assertEqual(s5.data["total_billed"], "0.00")
+        self.assertEqual(s5.data["total_collected"], "0.00")
+        self.assertEqual(s5.data["total_due"], "0.00")
+        self.assertEqual(s5.data["total_overdue"], "0.00")
 
 
 class SecurityAndRBACPermissionsTest(APITestCase):
@@ -588,7 +593,7 @@ class PdfPaginationAndLocalizationTest(TestCase):
             company=self.company,
             bank_name="Islami Bank PLC",
             account_name="RAKTCH TECHNOLOGY AND SOFTWARE",
-            account_number="20502180100311104",
+            account_number="1234567890123",
             branch_name="Haji Camp, Ashkona, Dakkhin khan",
             routing_number="125261995",
             is_default=True,
@@ -1329,6 +1334,207 @@ class Phase8RecurringBillingAutomatedTests(APITestCase):
         self.assertIn("has_warning", status_resp.data)
         self.assertIn("auto_billing_enabled", status_resp.data)
         self.assertEqual(status_resp.data["auto_billing_enabled"], True)
+
+    def test_mail_failure_does_not_abort_run_and_logs_in_recurring_run(self):
+        """Mail dispatch exception must not rollback invoices, and error details must be stored in RecurringRun"""
+        import unittest.mock
+        Subscription.objects.create(
+            client=self.client_a,
+            service=self.service_monthly,
+            start_date=datetime.date(2026, 10, 1),
+            is_active=True,
+        )
+
+        with unittest.mock.patch("billing.services.send_mail", side_effect=ConnectionError("Simulated SMTP Connection Refused")):
+            res = RecurringBillingService.run_recurring_billing(
+                target_period="2026-10",
+                trigger="MANUAL",
+                force=True,
+                catch_up=False,
+            )
+
+        # Invoices must be successfully created and committed
+        self.assertEqual(res["created_count"], 1)
+        self.assertEqual(Invoice.objects.filter(billing_period="2026-10").count(), 1)
+
+        # Recurring run record must log the mail error without crashing
+        run_record = RecurringRun.objects.filter(target_period="2026-10").first()
+        self.assertIsNotNone(run_record)
+        self.assertIn("mail_error", run_record.details)
+        self.assertIn("Simulated SMTP Connection Refused", run_record.details["mail_error"])
+
+
+
+class DemoUserSecurityTest(APITestCase):
+    def setUp(self):
+        User.objects.filter(username__in=["admin", "accountant", "staff"]).delete()
+
+    def test_login_with_demo_credentials_on_empty_db_returns_401_and_creates_no_user(self):
+        """Unseeded DB: login with default credentials must return 401 and create zero users"""
+        for user_cred, pass_cred in [("admin", "admin123"), ("accountant", "accountant123"), ("staff", "staff123")]:
+            resp = self.client.post("/api/auth/login/", {"username": user_cred, "password": pass_cred})
+            self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+            self.assertFalse(User.objects.filter(username=user_cred).exists())
+
+    def test_migrate_creates_no_demo_users(self):
+        """Running migrate must never create demo users automatically"""
+        call_command("migrate", interactive=False, verbosity=0)
+        self.assertFalse(User.objects.filter(username__in=["admin", "accountant", "staff"]).exists())
+
+    @override_settings(DEBUG=False)
+    def test_seed_demo_refuses_when_debug_false(self):
+        """seed_demo must refuse execution when DEBUG=False"""
+        with self.assertRaises(CommandError) as cm:
+            call_command("seed_demo")
+        self.assertIn("DEBUG is False", str(cm.exception))
+        self.assertFalse(User.objects.filter(username__in=["admin", "accountant", "staff"]).exists())
+
+    @override_settings(DEBUG=True)
+    def test_seed_demo_and_check_demo_accounts_when_debug_true(self):
+        """seed_demo creates accounts in dev, and check_demo_accounts correctly identifies them"""
+        call_command("seed_demo")
+        self.assertTrue(User.objects.filter(username="admin").exists())
+        self.assertTrue(User.objects.filter(username="accountant").exists())
+        self.assertTrue(User.objects.filter(username="staff").exists())
+
+        # check_demo_accounts should run cleanly without error
+        call_command("check_demo_accounts")
+
+
+class InvoiceNotificationPipelineTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="RAKTCH TECHNOLOGY & SOFTWARE",
+            email="support@raktch.com",
+            phone="+8801581677077",
+            website="www.raktch.com",
+        )
+        self.client = Client.objects.create(
+            name="Acme Corp",
+            email="billing@acme.com",
+            phone="01712345678",
+        )
+        self.invoice = Invoice.objects.create(
+            client=self.client,
+            company=self.company,
+            client_name="Acme Corp",
+            client_email="billing@acme.com",
+            client_phone="01712345678",
+            invoice_number="INV-202610-TEST",
+            billing_month="October 2026",
+            sub_total=Decimal("1000.00"),
+            payable_amount=Decimal("1000.00"),
+            status="ISSUED",
+        )
+
+    def test_phone_number_cleaning(self):
+        from .notification_service import InvoiceNotificationService
+        # 11-digit local BD phone -> 88 prefix
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("01712345678"), "8801712345678")
+        # Leading + stripped
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("+8801712345678"), "8801712345678")
+        # International formatting
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("+1 (555) 123-4567"), "15551234567")
+        # Empty
+        self.assertEqual(InvoiceNotificationService.clean_phone_number(""), "")
+
+    def test_diagnostics_structure(self):
+        from .notification_service import InvoiceNotificationService
+        diag = InvoiceNotificationService.get_diagnostics()
+        self.assertIn("email", diag)
+        self.assertIn("whatsapp", diag)
+        self.assertIn("backend", diag["email"])
+        self.assertIn("mode", diag["whatsapp"])
+
+    @patch("billing.notification_service.EmailMessage")
+    def test_send_invoice_email_success(self, mock_email_cls):
+        from .notification_service import InvoiceNotificationService
+        mock_instance = MagicMock()
+        mock_email_cls.return_value = mock_instance
+
+        res = InvoiceNotificationService.send_invoice_email(self.invoice, pdf_bytes=b"%PDF-1.4 test")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["status"], "SENT")
+        self.assertEqual(res["recipient"], "billing@acme.com")
+
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.invoice.email_sent)
+        self.assertIsNotNone(self.invoice.email_sent_at)
+        self.assertEqual(self.invoice.email_error, "")
+
+    def test_send_invoice_email_no_recipient(self):
+        from .notification_service import InvoiceNotificationService
+        self.client.email = ""
+        self.client.save()
+        self.invoice.client_email = ""
+        self.invoice.save(update_fields=["client_email"])
+
+        res = InvoiceNotificationService.send_invoice_email(self.invoice, pdf_bytes=b"dummy")
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "FAILED")
+        self.assertIn("no registered email", res["error"])
+
+    def test_send_invoice_whatsapp_click_to_chat(self):
+        from .notification_service import InvoiceNotificationService
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["status"], "SENT")
+        self.assertEqual(res["recipient"], "8801712345678")
+        self.assertIn("https://api.whatsapp.com/send?phone=8801712345678", res["link"])
+
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.invoice.whatsapp_sent)
+        self.assertEqual(self.invoice.whatsapp_error, "")
+
+    @patch("urllib.request.urlopen")
+    @override_settings(
+        WHATSAPP_API_TOKEN="test_token_123",
+        WHATSAPP_PHONE_NUMBER_ID="1000999888"
+    )
+    def test_send_invoice_whatsapp_cloud_api_success(self, mock_urlopen):
+        from .notification_service import InvoiceNotificationService
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertTrue(res["success"])
+        self.assertTrue(res["api_dispatched"])
+        self.assertEqual(res["status"], "SENT")
+
+    @patch("urllib.request.urlopen")
+    @override_settings(
+        WHATSAPP_API_TOKEN="invalid_token",
+        WHATSAPP_PHONE_NUMBER_ID="1000999888"
+    )
+    def test_send_invoice_whatsapp_cloud_api_failure_fallback(self, mock_urlopen):
+        import urllib.error
+        from io import BytesIO
+        from .notification_service import InvoiceNotificationService
+
+        mock_err = urllib.error.HTTPError(
+            url="https://graph.facebook.com/v21.0/1000999888/messages",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=BytesIO(b'{"error":{"message":"Invalid OAuth access token."}}')
+        )
+        mock_urlopen.side_effect = mock_err
+
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertFalse(res["success"])
+        self.assertFalse(res["api_dispatched"])
+        self.assertEqual(res["status"], "FAILED")
+        self.assertIn("Invalid OAuth access token", res["error"])
+        # Click-to-chat fallback link is still available for manual sending
+        self.assertTrue(res["link"].startswith("https://api.whatsapp.com/send?phone=8801712345678"))
+
+    def test_management_command_test_notifications(self):
+        # Verify manage.py test_notifications runs cleanly in dry-run mode
+        call_command("test_notifications", str(self.invoice.id), "--dry-run")
+
+
 
 
 

@@ -18,13 +18,13 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-gradient-to-r from-white via-cyan-50/25 to-blue-50/40 p-6 md:p-8 rounded-3xl border border-cyan-200/60 shadow-[0_4px_24px_-6px_rgba(6,182,212,0.08)]">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
             Payments & Due Tracking
-          </h2>
-          <p className="text-slate-500 text-sm">
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">
             Monitor payment collections, record transaction entries, download official Money Receipts, and track outstanding receivables
           </p>
         </div>

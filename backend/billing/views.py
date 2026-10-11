@@ -30,6 +30,15 @@ from .models import (
     AuditLog,
     LoginAttempt,
     RecurringRun,
+    ProjectStatus,
+    ProjectPriority,
+    BillingMethod,
+    DocumentCategory,
+    ProjectRolePermission,
+    Project,
+    ProjectModule,
+    ProjectExpense,
+    ProjectDocument,
 )
 from .serializers import (
     UserDetailSerializer,
@@ -53,10 +62,23 @@ from .serializers import (
     PaymentSerializer,
     RecurringRunSerializer,
     check_payment_allowed,
+    ProjectStatusSerializer,
+    ProjectPrioritySerializer,
+    BillingMethodSerializer,
+    DocumentCategorySerializer,
+    ProjectRolePermissionSerializer,
+    ProjectModuleSerializer,
+    ProjectExpenseSerializer,
+    ProjectDocumentSerializer,
+    ProjectListSerializer,
+    ProjectDetailSerializer,
+    ProjectCreateUpdateSerializer,
 )
 from rest_framework.exceptions import ValidationError
+from django.http import FileResponse
 from . import payment_calendar
 from .services import RecurringBillingService
+from .notification_service import InvoiceNotificationService
 from .permissions import (
     IsAdminRole,
     IsAccountantOrAdmin,
@@ -65,8 +87,14 @@ from .permissions import (
     PaymentPermission,
     InvoicePermission,
     get_user_role,
+    ProjectPermission,
+    ProjectConfigPermission,
+    ProjectModulePermission,
+    ProjectExpensePermission,
+    ProjectDocumentPermission,
+    has_project_permission,
 )
-from .filters import InvoiceFilter, ClientFilter, PaymentFilter
+from .filters import InvoiceFilter, ClientFilter, PaymentFilter, ProjectFilter
 from .audit import record_audit_log, get_client_ip
 
 User = get_user_model()
@@ -130,41 +158,6 @@ class LoginView(APIView):
                 {"detail": "Your account has been deactivated. Please contact an administrator."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
-        # 3. Ensure the default local demo accounts exist if the database was created without seeding.
-        if not target_user and username in {"admin", "accountant", "staff"}:
-            default_passwords = {
-                "admin": "admin123",
-                "accountant": "accountant123",
-                "staff": "staff123",
-            }
-            if password == default_passwords.get(username):
-                role_map = {
-                    "admin": UserProfile.ROLE_ADMIN,
-                    "accountant": UserProfile.ROLE_ACCOUNTANT,
-                    "staff": UserProfile.ROLE_STAFF,
-                }
-                user_obj, _ = User.objects.get_or_create(
-                    username=username,
-                    defaults={
-                        "email": f"{username}@raktch.com",
-                        "first_name": "System" if username == "admin" else "Demo",
-                        "last_name": "Admin" if username == "admin" else "User",
-                        "is_active": True,
-                        "is_staff": username == "admin",
-                        "is_superuser": username == "admin",
-                    },
-                )
-                user_obj.set_password(password)
-                user_obj.is_active = True
-                user_obj.is_staff = username == "admin"
-                user_obj.is_superuser = username == "admin"
-                user_obj.save()
-                UserProfile.objects.update_or_create(
-                    user=user_obj,
-                    defaults={"role": role_map[username], "phone": "+8801581677077" if username == "admin" else "+8801700000001" if username == "accountant" else "+8801700000002"},
-                )
-                target_user = user_obj
 
         # 3. Authenticate
         user = authenticate(request, username=username, password=password)
@@ -442,6 +435,148 @@ class RecurringRunViewSet(viewsets.ReadOnlyModelViewSet):
     def status(self, request):
         result = RecurringBillingService.get_dashboard_status()
         return Response(result, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], permission_classes=[IsAdminRole])
+    def generated_bills(self, request, pk=None):
+        """
+        Returns structured list of all invoices generated during this specific run,
+        hydrated with current live status and email/WhatsApp notification state.
+        """
+        run = self.get_object()
+        created_list = run.details.get("created", [])
+        bills = []
+
+        for item in created_list:
+            inv = None
+            if isinstance(item, str):
+                inv = Invoice.objects.filter(invoice_number=item).first()
+            elif isinstance(item, dict):
+                inv_id = item.get("invoice_id")
+                inv_num = item.get("invoice_number")
+                if inv_id:
+                    inv = Invoice.objects.filter(id=inv_id).first()
+                elif inv_num:
+                    inv = Invoice.objects.filter(invoice_number=inv_num).first()
+
+            if inv:
+                bills.append({
+                    "invoice_id": inv.id,
+                    "invoice_number": inv.invoice_number,
+                    "client_id": inv.client_id,
+                    "client_name": inv.client_name or (inv.client.name if inv.client else "Valued Client"),
+                    "client_email": inv.client_email or (inv.client.email if inv.client else ""),
+                    "client_phone": inv.client_phone or (inv.client.phone if inv.client else ""),
+                    "billing_month": inv.billing_month or (item.get("period", "") if isinstance(item, dict) else ""),
+                    "payable_amount": float(inv.payable_amount),
+                    "status": inv.status,
+                    "email_status": inv.email_status,
+                    "email_sent_at": inv.email_sent_at.isoformat() if inv.email_sent_at else None,
+                    "email_error": inv.email_error,
+                    "whatsapp_status": inv.whatsapp_status,
+                    "whatsapp_sent_at": inv.whatsapp_sent_at.isoformat() if inv.whatsapp_sent_at else None,
+                    "whatsapp_error": inv.whatsapp_error,
+                    "whatsapp_link": (item.get("whatsapp_link", "") if isinstance(item, dict) else ""),
+                })
+            elif isinstance(item, dict):
+                bills.append({
+                    "invoice_id": item.get("invoice_id"),
+                    "invoice_number": item.get("invoice_number", "INV"),
+                    "client_id": item.get("client_id"),
+                    "client_name": item.get("client_name", "Client"),
+                    "client_email": item.get("client_email", ""),
+                    "client_phone": item.get("client_phone", ""),
+                    "billing_month": item.get("billing_month", item.get("period", "")),
+                    "payable_amount": float(item.get("amount", 0)),
+                    "status": item.get("status", "ISSUED"),
+                    "email_status": item.get("email_status", "PENDING"),
+                    "email_sent_at": item.get("dispatched_at"),
+                    "email_error": item.get("email_error", ""),
+                    "whatsapp_status": item.get("whatsapp_status", "PENDING"),
+                    "whatsapp_sent_at": item.get("dispatched_at"),
+                    "whatsapp_error": item.get("whatsapp_error", ""),
+                    "whatsapp_link": item.get("whatsapp_link", ""),
+                })
+            else:
+                bills.append({
+                    "invoice_number": str(item),
+                    "status": "UNKNOWN",
+                    "email_status": "PENDING",
+                    "whatsapp_status": "PENDING",
+                })
+
+        return Response(bills, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAdminRole])
+    def resend_bill(self, request):
+        """
+        One-click resend action for a bill generated during a recurring run.
+        Updates the RecurringRun details ledger and re-dispatches PDF to client.
+        """
+        invoice_id = request.data.get("invoice_id")
+        invoice_number = request.data.get("invoice_number")
+        channel = request.data.get("channel", "all")
+        run_id = request.data.get("run_id")
+
+        invoice = None
+        if invoice_id:
+            invoice = Invoice.objects.filter(id=invoice_id).first()
+        if not invoice and invoice_number:
+            invoice = Invoice.objects.filter(invoice_number=invoice_number).first()
+
+        if not invoice:
+            return Response({"error": "Invoice not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        channels = ("email", "whatsapp") if channel == "all" else (channel,)
+        results = InvoiceNotificationService.dispatch_invoice_notifications(invoice, channels=channels)
+
+        # If run_id is supplied, update the run record's details.created entry
+        if run_id:
+            try:
+                run = RecurringRun.objects.filter(id=run_id).first()
+                if run and run.details and "created" in run.details:
+                    details_copy = dict(run.details)
+                    created_list = list(details_copy.get("created", []))
+                    updated = False
+                    for idx, entry in enumerate(created_list):
+                        if isinstance(entry, dict) and (
+                            entry.get("invoice_id") == invoice.id or entry.get("invoice_number") == invoice.invoice_number
+                        ):
+                            entry["email_status"] = invoice.email_status
+                            entry["email_error"] = invoice.email_error
+                            entry["whatsapp_status"] = invoice.whatsapp_status
+                            entry["whatsapp_error"] = invoice.whatsapp_error
+                            if "whatsapp" in results and results["whatsapp"].get("link"):
+                                entry["whatsapp_link"] = results["whatsapp"]["link"]
+                            created_list[idx] = entry
+                            updated = True
+                            break
+                    if updated:
+                        details_copy["created"] = created_list
+                        run.details = details_copy
+                        run.save(update_fields=["details"])
+            except Exception as run_update_err:
+                logger.warning("Failed to update run details upon bill resend: %s", run_update_err)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=request,
+            model_name="RecurringRun",
+            object_id=run_id or invoice.id,
+            object_repr=f"Resent bill #{invoice.invoice_number} via {channel}",
+            changes={"channel": channel, "invoice_id": invoice.id, "results": results},
+        )
+
+        return Response({
+            "message": f"Invoice {invoice.invoice_number} notification re-dispatched.",
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "email_status": invoice.email_status,
+            "email_error": invoice.email_error,
+            "whatsapp_status": invoice.whatsapp_status,
+            "whatsapp_error": invoice.whatsapp_error,
+            "whatsapp_link": results.get("whatsapp", {}).get("link", ""),
+            "results": results,
+        }, status=status.HTTP_200_OK)
 
 
 
@@ -752,6 +887,38 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
 
+    @action(detail=True, methods=["post"], permission_classes=[IsAccountantOrAdmin])
+    def resend_notification(self, request, pk=None):
+        """
+        One-click re-dispatch PDF invoice to client's registered Gmail / WhatsApp.
+        """
+        invoice = self.get_object()
+        channel = request.data.get("channel", "all")
+        channels = ("email", "whatsapp") if channel == "all" else (channel,)
+
+        results = InvoiceNotificationService.dispatch_invoice_notifications(invoice, channels=channels)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=request,
+            model_name="Invoice",
+            object_id=invoice.id,
+            object_repr=f"Resent notification for Invoice #{invoice.invoice_number} via {channel}",
+            changes={"channel": channel, "results": results},
+        )
+
+        return Response({
+            "message": f"Notification re-dispatched for invoice {invoice.invoice_number}",
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "email_status": invoice.email_status,
+            "email_error": invoice.email_error,
+            "whatsapp_status": invoice.whatsapp_status,
+            "whatsapp_error": invoice.whatsapp_error,
+            "whatsapp_link": results.get("whatsapp", {}).get("link", ""),
+            "results": results,
+        }, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=["post"], permission_classes=[IsAccountantOrAdmin])
     def generate_monthly_bills(self, request):
         """Batch-generate bills for all clients with subscribed services for a given month via RecurringBillingService"""
@@ -806,11 +973,21 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         final_collected = max(total_collected, inv_paid)
 
         active_clients = Client.objects.filter(is_active=True).count()
+        total_billed = billed_agg["total_billed"] or Decimal("0.00")
+        total_due = billed_agg["total_due"] or Decimal("0.00")
+
+        today = timezone.localdate()
+        overdue_agg = invoices_qs.filter(
+            due_date__lt=today,
+            due_amount__gt=Decimal("0.00")
+        ).exclude(status__in=["PAID", "CANCELLED"]).aggregate(total_overdue=Sum("due_amount"))
+        total_overdue = overdue_agg["total_overdue"] or Decimal("0.00")
 
         return Response({
-            "total_billed": float(billed_agg["total_billed"] or Decimal("0.00")),
-            "total_collected": float(final_collected),
-            "total_due": float(billed_agg["total_due"] or Decimal("0.00")),
+            "total_billed": f"{total_billed:.2f}",
+            "total_collected": f"{final_collected:.2f}",
+            "total_due": f"{total_due:.2f}",
+            "total_overdue": f"{total_overdue:.2f}",
             "total_invoices": billed_agg["total_invoices"] or 0,
             "active_clients": active_clients,
         })
@@ -968,3 +1145,452 @@ class PaymentViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+
+# ==============================================================================
+# Dynamic Projects Module Views
+# ==============================================================================
+
+class ProjectConfigView(APIView):
+    """
+    GET /api/projects/config/
+    Returns active options, code format, file upload limits, default columns,
+    and current user's project permissions.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "You do not have permission to view projects."}, status=status.HTTP_403_FORBIDDEN)
+
+        st = Settings.objects.first()
+
+        statuses = ProjectStatus.objects.filter(is_active=True).order_by("sort_order", "id")
+        priorities = ProjectPriority.objects.filter(is_active=True).order_by("sort_order", "id")
+        billing_methods = BillingMethod.objects.filter(is_active=True).order_by("sort_order", "id")
+        document_categories = DocumentCategory.objects.filter(is_active=True).order_by("sort_order", "id")
+
+        user_role = get_user_role(request.user)
+
+        user_perms = {
+            "can_view": has_project_permission(request.user, "view"),
+            "can_create": has_project_permission(request.user, "create"),
+            "can_edit": has_project_permission(request.user, "edit"),
+            "can_delete": has_project_permission(request.user, "delete"),
+            "can_manage_expenses": has_project_permission(request.user, "manage_expenses"),
+            "can_manage_documents": has_project_permission(request.user, "manage_documents"),
+            "can_manage_modules": has_project_permission(request.user, "manage_modules"),
+            "can_change_status": has_project_permission(request.user, "change_status"),
+            "can_manage_config": has_project_permission(request.user, "manage_config"),
+            "role": user_role,
+        }
+
+        default_columns = (
+            st.project_list_default_columns
+            if st and st.project_list_default_columns
+            else [
+                "code", "name", "client", "timespan", "status",
+                "priority", "budget", "documents", "billing_method",
+                "comment", "created_at"
+            ]
+        )
+
+        return Response({
+            "statuses": ProjectStatusSerializer(statuses, many=True).data,
+            "priorities": ProjectPrioritySerializer(priorities, many=True).data,
+            "billing_methods": BillingMethodSerializer(billing_methods, many=True).data,
+            "document_categories": DocumentCategorySerializer(document_categories, many=True).data,
+            "code_format": {
+                "prefix": getattr(st, "project_code_prefix", "PRJ") if st else "PRJ",
+                "digits": getattr(st, "project_code_digits", 4) if st else 4,
+                "include_year": getattr(st, "project_code_include_year", True) if st else True,
+            },
+            "file_rules": {
+                "receipt": {
+                    "allowed_extensions": getattr(st, "project_receipt_allowed_extensions", "pdf,png,jpg,jpeg") if st else "pdf,png,jpg,jpeg",
+                    "max_size_mb": getattr(st, "project_receipt_max_size_mb", 5) if st else 5,
+                },
+                "document": {
+                    "allowed_extensions": getattr(st, "project_doc_allowed_extensions", "pdf,docx,xlsx,png,jpg,zip") if st else "pdf,docx,xlsx,png,jpg,zip",
+                    "max_size_mb": getattr(st, "project_doc_max_size_mb", 25) if st else 25,
+                },
+            },
+            "default_columns": default_columns,
+            "currency_symbol": getattr(st, "currency_symbol", "Tk") if st else "Tk",
+            "currency_code": getattr(st, "currency_code", "BDT") if st else "BDT",
+            "permissions": user_perms,
+        })
+
+
+class ProjectOptionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for dynamic lookup option models:
+    - /api/project-options/statuses/
+    - /api/project-options/priorities/
+    - /api/project-options/billing-methods/
+    - /api/project-options/document-categories/
+    """
+    permission_classes = [ProjectConfigPermission]
+
+    MODEL_MAP = {
+        "statuses": (ProjectStatus, ProjectStatusSerializer),
+        "priorities": (ProjectPriority, ProjectPrioritySerializer),
+        "billing-methods": (BillingMethod, BillingMethodSerializer),
+        "document-categories": (DocumentCategory, DocumentCategorySerializer),
+    }
+
+    def _get_model_and_serializer(self):
+        option_type = self.kwargs.get("option_type")
+        if option_type not in self.MODEL_MAP:
+            raise ValidationError({"error": f"Invalid option type '{option_type}'."})
+        return self.MODEL_MAP[option_type]
+
+    def get_queryset(self):
+        model_cls, _ = self._get_model_and_serializer()
+        return model_cls.objects.all().order_by("sort_order", "id")
+
+    def get_serializer_class(self):
+        _, serializer_cls = self._get_model_and_serializer()
+        return serializer_cls
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        model_cls, _ = self._get_model_and_serializer()
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        model_cls, _ = self._get_model_and_serializer()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+
+    def perform_destroy(self, instance):
+        model_cls, _ = self._get_model_and_serializer()
+        for rel in instance._meta.related_objects:
+            accessor = rel.get_accessor_name()
+            if accessor and hasattr(instance, accessor):
+                count = getattr(instance, accessor).count()
+                if count > 0:
+                    raise ValidationError({
+                        "detail": f"Cannot delete '{instance.name}' because it is in use by {count} record(s). Deactivate it instead."
+                    })
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id=instance.id,
+            object_repr=instance.name,
+        )
+        instance.delete()
+
+    @action(detail=False, methods=["post"], url_path="reorder")
+    def reorder(self, request, option_type=None):
+        model_cls, _ = self._get_model_and_serializer()
+        items = request.data if isinstance(request.data, list) else request.data.get("items", [])
+        if not items:
+            return Response({"error": "No order data provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            for item in items:
+                pk = item.get("id")
+                order = item.get("sort_order")
+                if pk is not None and order is not None:
+                    model_cls.objects.filter(pk=pk).update(sort_order=order)
+
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name=model_cls.__name__,
+            object_id="batch_reorder",
+            object_repr=f"Reordered {option_type}",
+        )
+        return Response({"detail": "Options reordered successfully."})
+
+
+class ProjectRolePermissionViewSet(viewsets.ModelViewSet):
+    """
+    CRUD on ProjectRolePermission matrix.
+    Admin role is strictly immutable and protected.
+    """
+    queryset = ProjectRolePermission.objects.all().order_by("id")
+    serializer_class = ProjectRolePermissionSerializer
+    permission_classes = [ProjectConfigPermission]
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.role == UserProfile.ROLE_ADMIN:
+            raise ValidationError({"detail": "Administrator permissions cannot be modified."})
+        perm = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectRolePermission",
+            object_id=perm.id,
+            object_repr=f"Permissions for {perm.role}",
+        )
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for Projects:
+    - Zero N+1 queries via annotations and select_related
+    - Filters: status, priority, client, billing_method, dates, is_closed
+    - Search: code, name, client name
+    - Audit logging
+    - Block hard-deletion if related records exist
+    """
+    permission_classes = [ProjectPermission]
+    filterset_class = ProjectFilter
+    search_fields = ["code", "name", "client__name"]
+    ordering_fields = [
+        "code", "name", "start_date", "end_date", "total_budget",
+        "estimated_cost", "created_at", "priority__weight"
+    ]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        from django.db.models import Sum, Count, Value, DecimalField, IntegerField, Q
+        from django.db.models.functions import Coalesce
+
+        return Project.objects.select_related(
+            "client", "status", "priority", "billing_method", "created_by"
+        ).annotate(
+            annotated_actual_cost=Coalesce(
+                Sum("expenses__amount"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_billable_total=Coalesce(
+                Sum("expenses__amount", filter=Q(expenses__is_billable=True)),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_non_billable_total=Coalesce(
+                Sum("expenses__amount", filter=Q(expenses__is_billable=False)),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(max_digits=14, decimal_places=2)
+            ),
+            annotated_documents_count=Count("documents", distinct=True),
+            annotated_modules_count=Count("modules", distinct=True),
+            annotated_modules_progress_sum=Coalesce(
+                Sum("modules__progress_percent"),
+                Value(0),
+                output_field=IntegerField()
+            ),
+        )
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ProjectListSerializer
+        elif self.action == "retrieve":
+            return ProjectDetailSerializer
+        return ProjectCreateUpdateSerializer
+
+    def perform_create(self, serializer):
+        project = serializer.save(created_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="Project",
+            object_id=project.id,
+            object_repr=project.code,
+        )
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_status = old_instance.status
+        project = serializer.save()
+
+        if old_status != project.status:
+            record_audit_log(
+                AuditLog.ACTION_STATUS_CHANGE,
+                request=self.request,
+                model_name="Project",
+                object_id=project.id,
+                object_repr=project.code,
+                changes={"status": [old_status.name, project.status.name]},
+            )
+        else:
+            record_audit_log(
+                AuditLog.ACTION_UPDATE,
+                request=self.request,
+                model_name="Project",
+                object_id=project.id,
+                object_repr=project.code,
+            )
+
+    def perform_destroy(self, instance):
+        if instance.expenses.exists() or instance.documents.exists() or instance.modules.exists():
+            raise ValidationError(
+                {"detail": "Cannot delete project with existing expenses, documents, or modules. Update status to closed instead."}
+            )
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="Project",
+            object_id=instance.id,
+            object_repr=instance.code,
+        )
+        instance.delete()
+
+
+class ProjectModuleViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Modules (/api/projects/{project_pk}/modules/)"""
+    serializer_class = ProjectModuleSerializer
+    permission_classes = [ProjectModulePermission]
+
+    def get_queryset(self):
+        return ProjectModule.objects.filter(project_id=self.kwargs["project_pk"]).order_by("sort_order", "id")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        if project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot add modules to a closed project."})
+        module = serializer.save(project=project)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=module.id,
+            object_repr=f"{project.code} - {module.name}",
+        )
+
+    def perform_update(self, serializer):
+        module = self.get_object()
+        if module.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot modify modules of a closed project."})
+        mod = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=mod.id,
+            object_repr=f"{mod.project.code} - {mod.name}",
+        )
+
+    def perform_destroy(self, instance):
+        if instance.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot delete modules of a closed project."})
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectModule",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.name}",
+        )
+        instance.delete()
+
+
+class ProjectExpenseViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Expenses (/api/projects/{project_pk}/expenses/)"""
+    serializer_class = ProjectExpenseSerializer
+    permission_classes = [ProjectExpensePermission]
+
+    def get_queryset(self):
+        return ProjectExpense.objects.filter(project_id=self.kwargs["project_pk"]).select_related("created_by").order_by("-date", "-id")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        if project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot add expenses to a closed project."})
+        expense = serializer.save(project=project, created_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=expense.id,
+            object_repr=f"{project.code} - {expense.expense_name}",
+        )
+
+    def perform_update(self, serializer):
+        expense = self.get_object()
+        if expense.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot modify expenses of a closed project."})
+        exp = serializer.save()
+        record_audit_log(
+            AuditLog.ACTION_UPDATE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=exp.id,
+            object_repr=f"{exp.project.code} - {exp.expense_name}",
+        )
+
+    def perform_destroy(self, instance):
+        if instance.project.status.is_closed and get_user_role(self.request.user) != UserProfile.ROLE_ADMIN and not self.request.user.is_superuser:
+            raise ValidationError({"detail": "Cannot delete expenses of a closed project."})
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectExpense",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.expense_name}",
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="receipt")
+    def download_receipt(self, request, project_pk=None, pk=None):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        expense = self.get_object()
+        if not expense.receipt:
+            return Response({"detail": "No receipt attached to this expense."}, status=status.HTTP_404_NOT_FOUND)
+        import os
+        filename = os.path.basename(expense.receipt.name)
+        response = FileResponse(expense.receipt.open("rb"))
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ProjectDocumentViewSet(viewsets.ModelViewSet):
+    """CRUD for Project Documents (/api/projects/{project_pk}/documents/)"""
+    serializer_class = ProjectDocumentSerializer
+    permission_classes = [ProjectDocumentPermission]
+
+    def get_queryset(self):
+        return ProjectDocument.objects.filter(project_id=self.kwargs["project_pk"]).select_related("category", "uploaded_by").order_by("-uploaded_at")
+
+    def perform_create(self, serializer):
+        project = get_object_or_404(Project, pk=self.kwargs["project_pk"])
+        doc = serializer.save(project=project, uploaded_by=self.request.user)
+        record_audit_log(
+            AuditLog.ACTION_CREATE,
+            request=self.request,
+            model_name="ProjectDocument",
+            object_id=doc.id,
+            object_repr=f"{project.code} - {doc.title}",
+        )
+
+    def perform_destroy(self, instance):
+        record_audit_log(
+            AuditLog.ACTION_DELETE,
+            request=self.request,
+            model_name="ProjectDocument",
+            object_id=instance.id,
+            object_repr=f"{instance.project.code} - {instance.title}",
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="download")
+    def download_file(self, request, project_pk=None, pk=None):
+        if not has_project_permission(request.user, "view"):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        document = self.get_object()
+        if not document.file:
+            return Response({"detail": "File not found."}, status=status.HTTP_404_NOT_FOUND)
+        import os
+        filename = os.path.basename(document.file.name)
+        response = FileResponse(document.file.open("rb"))
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+

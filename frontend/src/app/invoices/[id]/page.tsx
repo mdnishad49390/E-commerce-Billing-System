@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, Invoice, Payment, PaymentMethod } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Dropdown, StatusBadge } from "@/components/common";
+import { Dropdown, StatusBadge, DatePicker } from "@/components/common";
 import {
   Printer,
   ArrowLeft,
@@ -446,8 +446,8 @@ export default function InvoiceDetailPage() {
                 <th className="border border-slate-700 p-2 text-left w-52">Name</th>
                 <th className="border border-slate-700 p-2 text-left">Technical Specification</th>
                 <th className="border border-slate-700 p-2 text-center w-12">Qty</th>
-                <th className="border border-slate-700 p-2 text-right w-24">U Price (Tk)</th>
-                <th className="border border-slate-700 p-2 text-right w-28">Total (Tk)</th>
+                <th className="border border-slate-700 p-2 text-right w-24">U Price ({invoice.currency_symbol || "Tk"})</th>
+                <th className="border border-slate-700 p-2 text-right w-28">Total ({invoice.currency_symbol || "Tk"})</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
@@ -916,12 +916,12 @@ export default function InvoiceDetailPage() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Payment Date *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
                   value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  onChange={setPaymentDate}
+                  required
+                  size="md"
+                  placeholder="Select payment date"
                 />
               </div>
 
