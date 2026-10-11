@@ -721,7 +721,7 @@ class ApiService {
 
   // Invoices
   async getInvoices(params?: Record<string, string | number | boolean>) {
-    return this.get<{ count: number; results: Invoice[] }>("/invoices/", params);
+    return this.get<{ count: number; results: Invoice[]; next?: string | null; previous?: string | null }>("/invoices/", params);
   }
 
   async getInvoice(id: number | string) {
@@ -909,8 +909,13 @@ class ApiService {
   }
 
   // Settings & Templates
-  async getSettings() {
-    return this.get<{ count: number; results: GlobalSettings[] }>("/settings/");
+  async getSettings(): Promise<{ count: number; results: GlobalSettings[] } & Partial<GlobalSettings>> {
+    const res = await this.get<{ count: number; results: GlobalSettings[] }>("/settings/");
+    const first = res.results?.[0];
+    return {
+      ...(first || {}),
+      ...res,
+    };
   }
 
   async updateSettings(id: number, data: Partial<GlobalSettings>) {
