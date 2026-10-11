@@ -48,10 +48,12 @@ class Command(BaseCommand):
 
             if preview_res["would_create"]:
                 self.stdout.write(self.style.SUCCESS("Invoices that WOULD be created:"))
+                settings_obj = Settings.objects.first()
+                curr = settings_obj.currency_symbol if settings_obj else "Tk"
                 for item in preview_res["would_create"]:
                     self.stdout.write(
                         f"  [+] Client: {item['client_name']} | Service: {item['service_name']} | "
-                        f"Period: {item['billing_period']} | Amount: {item['amount']} Tk | Status: {item['status']}"
+                        f"Period: {item['billing_period']} | Amount: {item['amount']} {curr} | Status: {item['status']}"
                     )
 
             if preview_res["would_skip"]:

@@ -158,41 +158,6 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # 3. Ensure the default local demo accounts exist if the database was created without seeding.
-        if not target_user and username in {"admin", "accountant", "staff"}:
-            default_passwords = {
-                "admin": "admin123",
-                "accountant": "accountant123",
-                "staff": "staff123",
-            }
-            if password == default_passwords.get(username):
-                role_map = {
-                    "admin": UserProfile.ROLE_ADMIN,
-                    "accountant": UserProfile.ROLE_ACCOUNTANT,
-                    "staff": UserProfile.ROLE_STAFF,
-                }
-                user_obj, _ = User.objects.get_or_create(
-                    username=username,
-                    defaults={
-                        "email": f"{username}@raktch.com",
-                        "first_name": "System" if username == "admin" else "Demo",
-                        "last_name": "Admin" if username == "admin" else "User",
-                        "is_active": True,
-                        "is_staff": username == "admin",
-                        "is_superuser": username == "admin",
-                    },
-                )
-                user_obj.set_password(password)
-                user_obj.is_active = True
-                user_obj.is_staff = username == "admin"
-                user_obj.is_superuser = username == "admin"
-                user_obj.save()
-                UserProfile.objects.update_or_create(
-                    user=user_obj,
-                    defaults={"role": role_map[username], "phone": "+8801581677077" if username == "admin" else "+8801700000001" if username == "accountant" else "+8801700000002"},
-                )
-                target_user = user_obj
-
         # 3. Authenticate
         user = authenticate(request, username=username, password=password)
 
@@ -833,11 +798,21 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         final_collected = max(total_collected, inv_paid)
 
         active_clients = Client.objects.filter(is_active=True).count()
+        total_billed = billed_agg["total_billed"] or Decimal("0.00")
+        total_due = billed_agg["total_due"] or Decimal("0.00")
+
+        today = timezone.localdate()
+        overdue_agg = invoices_qs.filter(
+            due_date__lt=today,
+            due_amount__gt=Decimal("0.00")
+        ).exclude(status__in=["PAID", "CANCELLED"]).aggregate(total_overdue=Sum("due_amount"))
+        total_overdue = overdue_agg["total_overdue"] or Decimal("0.00")
 
         return Response({
-            "total_billed": float(billed_agg["total_billed"] or Decimal("0.00")),
-            "total_collected": float(final_collected),
-            "total_due": float(billed_agg["total_due"] or Decimal("0.00")),
+            "total_billed": f"{total_billed:.2f}",
+            "total_collected": f"{final_collected:.2f}",
+            "total_due": f"{total_due:.2f}",
+            "total_overdue": f"{total_overdue:.2f}",
             "total_invoices": billed_agg["total_invoices"] or 0,
             "active_clients": active_clients,
         })

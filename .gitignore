@@ -13,6 +13,7 @@ backend/*.pdf
 backend/*.png
 backend/gtk3/
 backend/test_*.py
+qa/
 
 # Environment Variables
 .env

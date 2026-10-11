@@ -76,7 +76,7 @@ class BankAccount(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="bank_accounts")
     bank_name = models.CharField(max_length=255, default="Islami Bank PLC")
     account_name = models.CharField(max_length=255, default="RAKTCH TECHNOLOGY AND SOFTWARE")
-    account_number = models.CharField(max_length=100, default="20502180100311104")
+    account_number = models.CharField(max_length=100)
     branch_name = models.CharField(max_length=255, default="Haji Camp, Ashkona, Dakkhin khan")
     routing_number = models.CharField(max_length=100, default="125261995")
     is_default = models.BooleanField(default=True)
@@ -173,7 +173,7 @@ class Service(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} ({self.default_price} Tk)"
+        return f"{self.name} ({self.default_price})"
 
 
 class ClientServicePrice(models.Model):
@@ -195,7 +195,7 @@ class ClientServicePrice(models.Model):
         unique_together = ("client", "service")
 
     def __str__(self):
-        return f"{self.client.name} - {self.service.name}: {self.custom_price} Tk"
+        return f"{self.client.name} - {self.service.name}: {self.custom_price}"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -264,7 +264,7 @@ class Subscription(models.Model):
         unique_together = ("client", "service")
 
     def __str__(self):
-        return f"{self.client.name} - {self.effective_name} ({self.effective_price} Tk/{self.billing_cycle})"
+        return f"{self.client.name} - {self.effective_name} ({self.effective_price}/{self.billing_cycle})"
 
     @property
     def effective_price(self):

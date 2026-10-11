@@ -32,7 +32,7 @@ def run_tests_and_generate_samples():
 
     bank, _ = BankAccount.objects.get_or_create(
         company=company,
-        account_number="20502180100311104",
+        account_number="1234567890123",
         defaults={
             "bank_name": "Islami Bank PLC",
             "account_name": "RAKTCH TECHNOLOGY AND SOFTWARE",
