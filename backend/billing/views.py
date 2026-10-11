@@ -853,18 +853,22 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     # ---- Monthly payment calendar (read-only; computed from invoices/payments) ----
 
-    def _calendar_filters(self, request):
+    def _calendar_filters(self, request, params=None):
         """Validated month/year + optional client / status / method filters."""
+        params = request.query_params if params is None else params
         try:
-            year, month = payment_calendar.parse_month_year(request.query_params)
+            year, month = payment_calendar.parse_month_year(params)
             filters = {}
             for param, key in (("client", "client_id"), ("method", "method_id")):
-                raw = request.query_params.get(param)
+                raw = params.get(param)
                 if raw:
                     filters[key] = int(raw)
         except ValueError as exc:
             raise ValidationError({"error": str(exc)})
-        status_filter = (request.query_params.get("status") or "").upper()
+        search = (params.get("search") or "").strip()
+        if search:
+            filters["search"] = search[:100]
+        status_filter = (params.get("status") or "").upper()
         if status_filter and status_filter != "ALL":
             if status_filter not in payment_calendar.VALID_STATUSES:
                 raise ValidationError({"error": f"Unknown status '{status_filter}'."})
@@ -876,6 +880,39 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """GET /api/payments/calendar/?month=10&year=2026[&client=&status=&method=]"""
         year, month, filters = self._calendar_filters(request)
         return Response(payment_calendar.calendar_data(year, month, **filters))
+
+    @action(detail=False, methods=["get"], permission_classes=[IsStaffOrAbove])
+    def matrix(self, request):
+        """
+        GET /api/payments/matrix/?month=10&year=2026
+            [&start_date=&end_date=&search=&client=&status=&method=]
+        Client x date table: one row per client, cells keyed by due date.
+        """
+        _year, _month, filters = self._calendar_filters(request)
+        try:
+            first, last = payment_calendar.parse_range(request.query_params)
+        except ValueError as exc:
+            raise ValidationError({"error": str(exc)})
+        return Response(payment_calendar.matrix_data(first, last, **filters))
+
+    @action(detail=False, methods=["get"], permission_classes=[IsStaffOrAbove])
+    def obligations(self, request):
+        """
+        GET /api/payments/obligations/?month=10&year=2026
+            [&start_date=&end_date=&search=&status=&method=]
+        One row per invoice BILLED for that billing month/year (never chosen by
+        due date), each with a single status, plus the summary figures for the
+        same rows. start_date/end_date optionally narrow by invoice ISSUE date.
+        `search` matches company name, invoice number, or payment purpose.
+        """
+        year, month, filters = self._calendar_filters(request)
+        try:
+            issue_from, issue_to = payment_calendar.parse_issue_range(request.query_params)
+        except ValueError as exc:
+            raise ValidationError({"error": str(exc)})
+        return Response(
+            payment_calendar.obligations_data(year, month, issue_from=issue_from, issue_to=issue_to, **filters)
+        )
 
     @action(detail=False, methods=["get"], permission_classes=[IsStaffOrAbove], url_path="summary")
     def month_summary(self, request):
