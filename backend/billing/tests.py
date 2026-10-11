@@ -1,3 +1,4 @@
+from unittest.mock import patch, MagicMock
 from decimal import Decimal
 import datetime
 from django.test import TestCase, override_settings
@@ -1398,6 +1399,141 @@ class DemoUserSecurityTest(APITestCase):
 
         # check_demo_accounts should run cleanly without error
         call_command("check_demo_accounts")
+
+
+class InvoiceNotificationPipelineTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            name="RAKTCH TECHNOLOGY & SOFTWARE",
+            email="support@raktch.com",
+            phone="+8801581677077",
+            website="www.raktch.com",
+        )
+        self.client = Client.objects.create(
+            name="Acme Corp",
+            email="billing@acme.com",
+            phone="01712345678",
+        )
+        self.invoice = Invoice.objects.create(
+            client=self.client,
+            company=self.company,
+            client_name="Acme Corp",
+            client_email="billing@acme.com",
+            client_phone="01712345678",
+            invoice_number="INV-202610-TEST",
+            billing_month="October 2026",
+            sub_total=Decimal("1000.00"),
+            payable_amount=Decimal("1000.00"),
+            status="ISSUED",
+        )
+
+    def test_phone_number_cleaning(self):
+        from .notification_service import InvoiceNotificationService
+        # 11-digit local BD phone -> 88 prefix
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("01712345678"), "8801712345678")
+        # Leading + stripped
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("+8801712345678"), "8801712345678")
+        # International formatting
+        self.assertEqual(InvoiceNotificationService.clean_phone_number("+1 (555) 123-4567"), "15551234567")
+        # Empty
+        self.assertEqual(InvoiceNotificationService.clean_phone_number(""), "")
+
+    def test_diagnostics_structure(self):
+        from .notification_service import InvoiceNotificationService
+        diag = InvoiceNotificationService.get_diagnostics()
+        self.assertIn("email", diag)
+        self.assertIn("whatsapp", diag)
+        self.assertIn("backend", diag["email"])
+        self.assertIn("mode", diag["whatsapp"])
+
+    @patch("billing.notification_service.EmailMessage")
+    def test_send_invoice_email_success(self, mock_email_cls):
+        from .notification_service import InvoiceNotificationService
+        mock_instance = MagicMock()
+        mock_email_cls.return_value = mock_instance
+
+        res = InvoiceNotificationService.send_invoice_email(self.invoice, pdf_bytes=b"%PDF-1.4 test")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["status"], "SENT")
+        self.assertEqual(res["recipient"], "billing@acme.com")
+
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.invoice.email_sent)
+        self.assertIsNotNone(self.invoice.email_sent_at)
+        self.assertEqual(self.invoice.email_error, "")
+
+    def test_send_invoice_email_no_recipient(self):
+        from .notification_service import InvoiceNotificationService
+        self.client.email = ""
+        self.client.save()
+        self.invoice.client_email = ""
+        self.invoice.save(update_fields=["client_email"])
+
+        res = InvoiceNotificationService.send_invoice_email(self.invoice, pdf_bytes=b"dummy")
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status"], "FAILED")
+        self.assertIn("no registered email", res["error"])
+
+    def test_send_invoice_whatsapp_click_to_chat(self):
+        from .notification_service import InvoiceNotificationService
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["status"], "SENT")
+        self.assertEqual(res["recipient"], "8801712345678")
+        self.assertIn("https://api.whatsapp.com/send?phone=8801712345678", res["link"])
+
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.invoice.whatsapp_sent)
+        self.assertEqual(self.invoice.whatsapp_error, "")
+
+    @patch("urllib.request.urlopen")
+    @override_settings(
+        WHATSAPP_API_TOKEN="test_token_123",
+        WHATSAPP_PHONE_NUMBER_ID="1000999888"
+    )
+    def test_send_invoice_whatsapp_cloud_api_success(self, mock_urlopen):
+        from .notification_service import InvoiceNotificationService
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertTrue(res["success"])
+        self.assertTrue(res["api_dispatched"])
+        self.assertEqual(res["status"], "SENT")
+
+    @patch("urllib.request.urlopen")
+    @override_settings(
+        WHATSAPP_API_TOKEN="invalid_token",
+        WHATSAPP_PHONE_NUMBER_ID="1000999888"
+    )
+    def test_send_invoice_whatsapp_cloud_api_failure_fallback(self, mock_urlopen):
+        import urllib.error
+        from io import BytesIO
+        from .notification_service import InvoiceNotificationService
+
+        mock_err = urllib.error.HTTPError(
+            url="https://graph.facebook.com/v21.0/1000999888/messages",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=BytesIO(b'{"error":{"message":"Invalid OAuth access token."}}')
+        )
+        mock_urlopen.side_effect = mock_err
+
+        res = InvoiceNotificationService.send_invoice_whatsapp(self.invoice, pdf_bytes=b"dummy")
+        self.assertFalse(res["success"])
+        self.assertFalse(res["api_dispatched"])
+        self.assertEqual(res["status"], "FAILED")
+        self.assertIn("Invalid OAuth access token", res["error"])
+        # Click-to-chat fallback link is still available for manual sending
+        self.assertTrue(res["link"].startswith("https://api.whatsapp.com/send?phone=8801712345678"))
+
+    def test_management_command_test_notifications(self):
+        # Verify manage.py test_notifications runs cleanly in dry-run mode
+        call_command("test_notifications", str(self.invoice.id), "--dry-run")
+
 
 
 
