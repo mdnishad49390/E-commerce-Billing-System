@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, User, ArrowRight, Sparkles, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Lock, User, ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -19,17 +19,12 @@ export default function LoginPage() {
 
     try {
       await login(username, password);
-    } catch (err: any) {
-      setError(err.message || "Invalid username or password. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid username or password. Please try again.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFillRole = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setError("");
   };
 
   return (
@@ -120,36 +115,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Role Fill Shortcuts */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-center text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
-              Quick Role Test Access
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleFillRole("admin", "admin123")}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 border border-slate-200 hover:border-cyan-300 transition-colors cursor-pointer text-center"
-              >
-                👑 Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillRole("accountant", "accountant123")}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors cursor-pointer text-center"
-              >
-                📊 Accountant
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFillRole("staff", "staff123")}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-300 transition-colors cursor-pointer text-center"
-              >
-                💼 Staff
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mt-6">

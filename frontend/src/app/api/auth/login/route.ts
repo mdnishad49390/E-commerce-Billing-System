@@ -60,9 +60,10 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to communicate with authentication service.";
     return NextResponse.json(
-      { detail: error.message || "Failed to communicate with authentication service." },
+      { detail: message },
       { status: 500 }
     );
   }

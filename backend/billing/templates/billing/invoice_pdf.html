@@ -358,8 +358,8 @@
         <th style="width: 145px; text-align: left;">Name</th>
         <th style="text-align: left;">Technical Specification</th>
         <th class="text-center" style="width: 36px;">Qty</th>
-        <th class="text-right" style="width: 72px;">U Price (Tk)</th>
-        <th class="text-right" style="width: 78px;">Total (Tk)</th>
+        <th class="text-right" style="width: 72px;">U Price ({{ invoice.currency_symbol|default:"Tk" }})</th>
+        <th class="text-right" style="width: 78px;">Total ({{ invoice.currency_symbol|default:"Tk" }})</th>
       </tr>
     </thead>
     <tbody>

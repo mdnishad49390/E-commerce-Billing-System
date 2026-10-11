@@ -446,8 +446,8 @@ export default function InvoiceDetailPage() {
                 <th className="border border-slate-700 p-2 text-left w-52">Name</th>
                 <th className="border border-slate-700 p-2 text-left">Technical Specification</th>
                 <th className="border border-slate-700 p-2 text-center w-12">Qty</th>
-                <th className="border border-slate-700 p-2 text-right w-24">U Price (Tk)</th>
-                <th className="border border-slate-700 p-2 text-right w-28">Total (Tk)</th>
+                <th className="border border-slate-700 p-2 text-right w-24">U Price ({invoice.currency_symbol || "Tk"})</th>
+                <th className="border border-slate-700 p-2 text-right w-28">Total ({invoice.currency_symbol || "Tk"})</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">

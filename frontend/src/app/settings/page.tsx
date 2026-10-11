@@ -1677,7 +1677,7 @@ export default function SettingsPage() {
                     required
                     value={newBankForm.account_number}
                     onChange={(e) => setNewBankForm({ ...newBankForm, account_number: e.target.value })}
-                    placeholder="e.g. 20502180100311104"
+                    placeholder="e.g. 123456789012"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-mono"
                   />
                 </div>
